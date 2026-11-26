@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#2b3035">
+  <meta name="theme-color" content="#000207">
   <meta name="page-type" content="software">
   <meta name="site-kind" content="software">
   <meta name="description" content="Ilya’s portfolio of Telegram bots and work in data science. Explore Helper, Downloader and Moderator, or get in touch.">
   <meta property="og:title" content="Ilya / maisdev — Data science &amp; Telegram bots">
   <meta property="og:description" content="Explore Ilya’s bot projects and get in touch with maisdev.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://maisdev.host/assets/share.jpg">
+  <meta property="og:image" content="https://daexorn.github.io/assets/share.jpg">
   <title>Ilya / maisdev — Data science &amp; Telegram bots</title>
   <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/host-grotesk.woff2" as="font" type="font/woff2" crossorigin>
@@ -21,12 +21,19 @@
   <script type="module" src="script.js"></script>
   <script type="module" src="assets/moments/moments.js"></script>
 </head>
-<body>
+<body id="top">
   <a class="skip" href="#main">Skip to content</a>
-  <header class="site-header nav" id="top">
+  <svg class="lens-def" width="0" height="0" aria-hidden="true">
+    <defs><filter id="nav-lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feImage id="lens-map" result="map" preserveAspectRatio="none" width="100%" height="100%"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+    </filter></defs>
+  </svg>
+  <header class="site-header nav">
     <div class="wrap nav-inner">
       <a class="wordmark" href="#top" aria-label="maisdev home"><img src="assets/mark.svg" alt="" width="30" height="30">maisdev</a>
       <nav aria-label="Main navigation"><a href="#work">Projects</a><a href="#about">About</a></nav>
+      <a class="git-link" href="https://github.com/daexorn" aria-label="daexorn on GitHub"><img src="assets/brands/github.svg" alt="" width="20" height="20"><span>GitHub</span></a>
     </div>
   </header>
   <main id="main">
@@ -39,11 +46,11 @@
           <a class="contact btn btn--primary" href="https://t.me/mssvr"><img src="assets/brands/telegram.svg" width="24" height="24" alt="">Telegram<span aria-hidden="true">↗</span></a>
         </div>
         <div class="stage hero__stage" data-enter-media>
-          <div class="guides" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-          <div class="cube" role="img" aria-label="A scrambled six-colour Rubik’s cube">
+          <button class="cube" type="button" aria-label="Turn a layer of the dark Rubik’s cube" title="Click to turn a layer. Drag to rotate.">
             <img src="assets/cube-still.svg" width="512" height="512" alt="">
             <canvas aria-hidden="true" width="512" height="512"></canvas>
-          </div>
+          </button>
+          <p class="cube-help">Drag to rotate · Tap to turn a layer</p>
         </div>
         <a class="next-section" href="#work">Selected projects <span aria-hidden="true">↓</span></a>
       </div>
@@ -73,7 +80,6 @@
         <h2 id="about-title">About Ilya</h2>
         <p class="mo-wh__text">I’m studying <strong>data science</strong>, building Telegram bots and exploring how blockchain networks work.</p>
         <div class="socials">
-          <a href="https://github.com/maisdev"><img src="assets/brands/github.svg" width="22" height="22" alt="">GitHub <span aria-hidden="true">↗</span></a>
           <a href="https://discord.gg/TpM7jDhBMN"><img src="assets/brands/discord.svg" width="24" height="20" alt="">Discord <span aria-hidden="true">↗</span></a>
         </div>
       </div>

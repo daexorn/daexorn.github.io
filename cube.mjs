@@ -1,10 +1,9 @@
 // Positions and sticker normals are integer vectors at the end of each legal turn.
 const HALF_PI = Math.PI / 2;
-const faces = [
-  { normal: [1,0,0], color: '#f05a26' }, { normal: [-1,0,0], color: '#cf3231' },
-  { normal: [0,1,0], color: '#f4cd39' }, { normal: [0,-1,0], color: '#ecebe2' },
-  { normal: [0,0,1], color: '#25875b' }, { normal: [0,0,-1], color: '#3164b7' }
-];
+const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+// The original cube's four navy finishes under its cool key and hemisphere lights.
+const shell = ['#03070c','#050b13','#07101b','#091525'];
+const homeView = { yaw: -.59, pitch: .46 };
 const add = (a,b) => a.map((v,i) => v+b[i]);
 const scale = (v,n) => v.map(x => x*n);
 const dot = (a,b) => a.reduce((sum,x,i) => sum+x*b[i],0);
@@ -22,7 +21,10 @@ export function turn(pieces, axis, layer, direction) {
   const snap = vector => rotate(vector,axis,direction*HALF_PI).map(Math.round);
   for (const piece of pieces.filter(p => p.center[axis] === layer)) {
     piece.center = snap(piece.center);
-    for (const face of piece.faces) face.normal = snap(face.normal);
+    for (const face of piece.faces) {
+      face.normal = snap(face.normal);
+      face.tangent = snap(face.tangent);
+    }
   }
 }
 
@@ -31,9 +33,14 @@ export function makeCube() {
   for (const x of [-1,0,1]) for (const y of [-1,0,1]) for (const z of [-1,0,1]) {
     if (!x && !y && !z) continue;
     const center = [x,y,z];
-    pieces.push({center, faces:faces.map(({normal,color}) => ({
-      normal:[...normal], color:dot(center,normal) === 1 ? color : null
-    }))});
+    pieces.push({center, faces:faces.map((normal, side) => {
+      const [u,v] = side < 2 ? [y,z] : side < 4 ? [x,z] : [x,y];
+      return {
+        normal:[...normal], tangent:normal[0] ? [0,0,1] : [1,0,0],
+        color:dot(center,normal) === 1 ? shell[Math.abs(side+u*2+v*3+8)%4] : null,
+        finish:Math.abs(side*5+u*3+v*7+11)%7
+      };
+    })});
   }
   turn(pieces,0,1,1);
   turn(pieces,1,1,-1);
@@ -41,8 +48,8 @@ export function makeCube() {
   return pieces;
 }
 
-function camera(v) {
-  return rotate(rotate(rotate(v,1,-.59),0,.46),2,-.055);
+function camera(v,viewpoint) {
+  return rotate(rotate(rotate(v,1,viewpoint.yaw),0,viewpoint.pitch),2,-.055);
 }
 function project(v) {
   const k = 94 * 11.5 / (11.5-v[2]);
@@ -62,27 +69,46 @@ function tone(hex, gain, lift=0) {
   return '#'+[n>>16,(n>>8)&255,n&255].map(v=>Math.max(0,Math.min(255,Math.round(v*gain+lift))).toString(16).padStart(2,'0')).join('');
 }
 
+// Etch the original line, dot and grid finishes in the tile's own coordinates.
+function etching(finish,point) {
+  const paths=[];
+  const pair = (a,b) => paths.push('M'+point(...a)+'L'+point(...b));
+  for (let i=-.38; i<.41; i+=.073) {
+    if (finish===2 || finish===5) pair([i,-.43],[i,.43]);
+    if (finish===3 || finish===5) pair([-.43,i],[.43,i]);
+    if (finish===4) pair([i-.45,-.45],[i+.45,.45]);
+    if (finish===1 || finish===6) {
+      for (let j=-.38;j<.41;j+=.085) pair([i,j],[i+.009,j+.009]);
+    }
+  }
+  return paths.join('');
+}
+
 // The still image and the animated canvas share the same projection and materials.
-export function geometry(pieces, move=null) {
+export function geometry(pieces, move=null, viewpoint=homeView) {
   const visible=[];
   for (const piece of pieces) {
     const turning = move && piece.center[move.axis] === move.layer;
-    const view = v => camera(turning ? rotate(v,move.axis,move.angle) : v);
+    const view = v => camera(turning ? rotate(v,move.axis,move.angle) : v,viewpoint);
     const center = view(piece.center);
     for (const face of piece.faces) {
       const n=view(face.normal);
       const position=add(center,scale(n,.492));
       if (dot(n,[-position[0],-position[1],11.5-position[2]]) <= 0) continue;
-      const across = face.normal[0] ? [0,0,1] : [1,0,0];
+      const across = face.tangent;
       const u=view(across), v=view(cross(face.normal,across));
       const square = size => [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b]) =>
         project(add(position,add(scale(u,a*size),scale(v,b*size)))));
-      const light=.80+.18*n[1]+.11*n[2]-.08*n[0];
+      const light=Math.max(.12,.42+.46*n[1]+.26*n[2]-.18*n[0]);
+      const point = (a,b) => project(add(position,add(scale(u,a),scale(v,b)))).map(x=>x.toFixed(2)).join(' ');
+      const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
-        depth:position[2], body:rounded(square(.498),.105), plastic:tone('#26272a',light),
-        sticker:face.color && rounded(square(.446),.16),
-        light:face.color && tone(face.color,light*1.04,5),
-        dark:face.color && tone(face.color,light*.88)
+        depth:position[2], body:rounded(square(.498),.105), plastic:tone('#101a28',.85+light*.42),
+        sticker:face.color && rounded(square(.443),.17),
+        texture:face.color && etching(face.finish,point),
+        edge:tone('#7895b7',light*.65),
+        light:face.color && tone(face.color,1.65,light*34*specular),
+        dark:face.color && tone(face.color,1.3,light*7)
       });
     }
   }
@@ -93,6 +119,7 @@ export function mountCube(canvas) {
   const ctx=canvas.getContext('2d');
   if (!ctx) return;
   const pieces=makeCube(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const viewpoint={...homeView};
   let move=null, frame=0, timer=0, onScreen=false, sequence=0;
   const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
   function draw() {
@@ -100,16 +127,21 @@ export function mountCube(canvas) {
     if (canvas.width!==size || canvas.height!==size) canvas.width=canvas.height=size;
     ctx.setTransform(size/512,0,0,size/512,0,0);
     ctx.clearRect(0,0,512,512);
-    for (const f of geometry(pieces,move)) {
+    for (const f of geometry(pieces,move,viewpoint)) {
       const body=new Path2D(f.body);
       ctx.fillStyle=f.plastic; ctx.fill(body);
-      ctx.strokeStyle='#151618';ctx.lineWidth=1.3;ctx.stroke(body);
+      ctx.strokeStyle='#02050b';ctx.lineWidth=1.3;ctx.stroke(body);
       if (!f.sticker) continue;
       const tile=new Path2D(f.sticker);
       const glaze=ctx.createLinearGradient(60,70,410,435);
       glaze.addColorStop(0,f.light);glaze.addColorStop(1,f.dark);
       ctx.fillStyle=glaze;ctx.fill(tile);
-      ctx.strokeStyle='rgba(255,255,255,.24)';ctx.lineWidth=1.1;ctx.stroke(tile);
+      if (f.texture) {
+        ctx.save();ctx.clip(tile);
+        ctx.strokeStyle='rgba(130,155,188,.22)';ctx.lineWidth=.8;
+        ctx.stroke(new Path2D(f.texture));ctx.restore();
+      }
+      ctx.strokeStyle=f.edge;ctx.lineWidth=1.15;ctx.stroke(tile);
     }
     canvas.parentElement.classList.add('is-drawn');
   }
@@ -117,10 +149,11 @@ export function mountCube(canvas) {
     cancelAnimationFrame(frame);clearTimeout(timer);
     if (move) { move=null;draw(); }
   }
-  function play() {
-    if (move || !onScreen || reduced.matches || document.hidden) return;
+  function play(manual=false) {
+    if (move || !onScreen || document.hidden || (reduced.matches && !manual)) return;
     clearTimeout(timer);
     const [axis,layer,direction]=moves[sequence++%moves.length];
+    if (reduced.matches) { turn(pieces,axis,layer,direction);draw();return; }
     const start=performance.now();
     move={axis,layer,angle:0};
     function tick(now) {
@@ -139,8 +172,27 @@ export function mountCube(canvas) {
     if (!onScreen) stop();
     else if (sequence===0 && !reduced.matches) timer=setTimeout(play,600);
   }).observe(scene);
-  scene.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse') play();});
-  scene.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse') play();});
+  let drag=null, dragged=false, paintFrame=0;
+  scene.addEventListener('pointerdown',event=>{
+    if (!event.isPrimary || event.button!==0) return;
+    dragged=false;
+    drag={id:event.pointerId,x:event.clientX,y:event.clientY,yaw:viewpoint.yaw,pitch:viewpoint.pitch};
+    scene.setPointerCapture(event.pointerId);
+  });
+  scene.addEventListener('pointermove',event=>{
+    if (!drag || drag.id!==event.pointerId) return;
+    const dx=event.clientX-drag.x, dy=event.clientY-drag.y;
+    if (!dragged && Math.hypot(dx,dy)<5) return;
+    dragged=true;
+    viewpoint.yaw=drag.yaw+dx*.009;
+    viewpoint.pitch=Math.max(-1.45,Math.min(1.45,drag.pitch+dy*.009));
+    if (!paintFrame) paintFrame=requestAnimationFrame(()=>{paintFrame=0;draw();});
+  });
+  scene.addEventListener('lostpointercapture',()=>{drag=null;});
+  scene.addEventListener('click',event=>{
+    if (!dragged || event.detail===0) play(true);
+    dragged=false;
+  });
   reduced.addEventListener('change',stop);
   document.addEventListener('visibilitychange',()=>{if(document.hidden) stop();});
   draw();
