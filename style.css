@@ -208,26 +208,31 @@ h1 > span{display:block}
 
 .section-index {
   position:fixed;z-index:4;left:clamp(18px,2vw,36px);top:50%;transform:translateY(-50%);
-  width:156px;display:grid;
+  width:156px;display:grid;--row:60px;--selected:0;
 }
-.section-index a {display:block;position:relative;padding:11px 0 11px 15px;min-height:44px;color:#a7b5c6}
-.section-index a::before {content:"";position:absolute;left:0;top:11px;bottom:11px;width:2px;background:#8496aa77}
+.section-index a {display:block;position:relative;padding:8px 0 0 15px;height:var(--row);color:#a7b5c6;transition:color .32s ease}
+.section-index a::before {content:"";position:absolute;left:0;top:10px;height:21px;width:2px;background:#8496aa77;transition:background-color .4s ease}
 .section-index strong {font-weight:550;font-size:.94rem}
-.section-index small {display:none;margin-top:4px;font-size:.82rem;line-height:1.42;color:#b1c2d4}
+.section-index small {display:block;margin-top:4px;font-size:.82rem;line-height:1.35;color:#b1c2d4;
+  opacity:0;transform:translateY(4px);transition:opacity .28s ease,transform .4s var(--ease)}
 .section-index a[aria-current],.section-index a:hover {color:#f5f8ff}
 .section-index a[data-past]::before {background:#ac765e}
-.section-index a[aria-current]::before {background:#ff9468}
-.section-index a[aria-current] small {display:block}
+.section-index a[aria-current] small {opacity:1;transform:none}
+.section-index::after {content:"";pointer-events:none;position:absolute;top:10px;left:0;width:2px;height:40px;
+  border-radius:2px;background:#ff9468;transform:translateY(calc(var(--selected) * var(--row)));
+  transition:transform .55s cubic-bezier(.33,0,.17,1)}
 @media(min-width:1051px){
   .hero-layout {padding-left:max(210px,calc((100vw - 1120px)/2))}
   .about-layout,.study-layout {width:auto;max-width:1200px;margin-inline:max(210px,calc((100vw - 1120px)/2)) max(5vw,calc((100vw - 1360px)/2))}
 }
 @media(max-width:1050px){
   .section-index {inset:auto 0 0;transform:none;width:100%;display:grid;grid-template-columns:repeat(4,1fr);padding:0 max(6px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px,env(safe-area-inset-left));background:#0a1320;border-top:1px solid #293b50}
-  .section-index a {display:grid;place-content:center;padding:5px;text-align:center}
+  .section-index a {height:auto;min-height:44px;display:grid;place-content:center;padding:5px;text-align:center}
   .section-index a::before {top:0;bottom:auto;left:12%;width:76%;height:2px}
   .section-index strong {font-size:.78rem}
-  .section-index a[aria-current] small {display:none}
+  .section-index small {display:none}
+  .section-index::after {inset:0 auto auto 0;width:25%;height:2px;background:transparent;
+    border-inline:0;transform:translateX(calc(var(--selected) * 100%));background-image:linear-gradient(to right,transparent 12%,#ff9468 12% 88%,transparent 88%)}
   .hero-meta {bottom:64px}
 }
 @media(prefers-reduced-motion:no-preference){
@@ -236,7 +241,19 @@ h1 > span{display:block}
   @keyframes word-arrival {from{color:#8091aa}to{color:var(--word-ink,var(--ink))}}
 }
 
-html {scrollbar-color:#4c5c70 #0a1320;scrollbar-width:thin}
+html {scrollbar-color:#7893ac #101d2a;scrollbar-width:thin}
+@supports selector(::-webkit-scrollbar) {
+  html {scrollbar-color:auto;scrollbar-width:auto}
+  html::-webkit-scrollbar {width:12px;height:12px}
+  html::-webkit-scrollbar-track {background:#0c1722;box-shadow:inset 1px 0 #243546}
+  html::-webkit-scrollbar-thumb {
+    border:3px solid transparent;border-radius:12px;background:#708ba4;background-clip:padding-box;
+    box-shadow:inset 1px 0 #b6cddd66,inset -1px 0 #415a70
+  }
+  html::-webkit-scrollbar-thumb:hover {background-color:#97b2c8}
+  html::-webkit-scrollbar-thumb:active {background-color:#bfd2df}
+}
+@media(forced-colors:active){html {scrollbar-color:auto}}
 
 /* Clear rims, translucent surfaces and an opaque fallback for reduced transparency. */
 .contact,.demo-action {

@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=22fa7094f8';
+import { mountCube } from './cube.mjs?v=06f25615ed';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -36,6 +36,7 @@ if (CSS.supports('backdrop-filter','url(#nav-lens)') && /Chrome|Chromium|Edg\//.
 
 const sections = [...document.querySelectorAll('main > section')];
 const indexLinks = [...document.querySelectorAll('.section-index a, .site-header nav a')];
+const sectionIndex = document.querySelector('.section-index');
 const main = document.querySelector('main');
 const panels = sections.map(section=>section.querySelector('.scene-panel'));
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
@@ -46,6 +47,7 @@ const clamp = value=>Math.max(0,Math.min(1,value));
 function selectSection(index) {
   if (index===currentIndex) return;
   currentIndex=index;
+  sectionIndex.style.setProperty('--selected',index);
   sections.forEach((section,i)=>{
     section.classList.toggle('is-current',i===index);
     panels[i].inert=!motionPreference.matches && i!==index;
@@ -116,6 +118,45 @@ const panelSize=new ResizeObserver(measure);
 panels.forEach(panel=>panelSize.observe(panel));
 motionPreference.addEventListener('change',configureMotion);
 configureMotion();
+
+// Menu travel uses the same scroll-driven pictures as a manual gesture.
+let menuFrame = 0;
+function cancelMenuTravel() {
+  cancelAnimationFrame(menuFrame);
+  menuFrame=0;
+}
+sectionIndex.addEventListener('click',event=>{
+  const link=event.target.closest('a[href^="#"]');
+  if (!link || event.defaultPrevented || event.button!==0 || event.metaKey ||
+      event.ctrlKey || event.shiftKey || event.altKey) return;
+  const target=document.getElementById(link.hash.slice(1));
+  if (!target) return;
+  event.preventDefault();
+  cancelMenuTravel();
+  const start=scrollY;
+  const end=Math.min(start+target.getBoundingClientRect().top,document.documentElement.scrollHeight-innerHeight);
+  if (location.hash!==link.hash) history.pushState(null,'',link.hash);
+  if (motionPreference.matches) {
+    window.scrollTo({top:end,behavior:'instant'});
+    return;
+  }
+  const distance=end-start;
+  if (Math.abs(distance)<1) return;
+  const duration=Math.min(2400,720+480*Math.abs(distance)/innerHeight);
+  const startTime=performance.now();
+  function advance(now) {
+    const t=clamp((now-startTime)/duration);
+    // Cosine easing starts and ends at zero velocity, even for a long jump.
+    const fraction=(1-Math.cos(Math.PI*t))/2;
+    window.scrollTo({top:start+distance*fraction,behavior:'instant'});
+    menuFrame=t<1 ? requestAnimationFrame(advance) : 0;
+  }
+  menuFrame=requestAnimationFrame(advance);
+});
+for (const type of ['wheel','touchstart','pointerdown','keydown','popstate','hashchange','resize']) {
+  window.addEventListener(type,cancelMenuTravel,{passive:true});
+}
+motionPreference.addEventListener('change',cancelMenuTravel);
 
 import('./assets/moments/moments.js').then(async ({ready})=>{
   await ready;

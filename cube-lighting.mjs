@@ -58,8 +58,8 @@ export function createStudioCube(canvas, pieces) {
   const stage = new THREE.Scene();
   const reflection = studioReflection(renderer);
   stage.environment = reflection.texture;
-  const camera = new THREE.PerspectiveCamera(28, 1, .1, 40);
-  camera.position.z = 11;
+  const camera = new THREE.PerspectiveCamera(10, 1, .1, 40);
+  camera.position.z = 31;
   const rig = new THREE.Group();
   rig.rotation.order = 'ZXY';
   stage.add(rig);
@@ -70,11 +70,22 @@ export function createStudioCube(canvas, pieces) {
   const fill = new THREE.DirectionalLight(0xa4c6ed, 2.6);
   fill.position.set(3, 1, 6);
   stage.add(fill);
-  // A single face includes its share of the bevel. Six instances meet to form
-  // one solid cubelet, just as the six materials did on the original geometry.
-  const faceShape = new RoundedBoxGeometry(.97,.97,.97,2,.048);
-  const front = faceShape.groups[4];
-  faceShape.setDrawRange(front.start,front.count);
+  const bodyShape = new RoundedBoxGeometry(1,1,1,3,.12);
+  const tileWidth = .82, half = tileWidth/2, radius = tileWidth*.15;
+  const outline = new THREE.Shape();
+  outline.moveTo(-half+radius,-half);
+  outline.lineTo(half-radius,-half);
+  outline.quadraticCurveTo(half,-half,half,-half+radius);
+  outline.lineTo(half,half-radius);
+  outline.quadraticCurveTo(half,half,half-radius,half);
+  outline.lineTo(-half+radius,half);
+  outline.quadraticCurveTo(-half,half,-half,half-radius);
+  outline.lineTo(-half,-half+radius);
+  outline.quadraticCurveTo(-half,-half,-half+radius,-half);
+  const faceShape = new THREE.ExtrudeGeometry(outline,{depth:.0246,bevelEnabled:false,curveSegments:4});
+  faceShape.translate(0,0,.5);
+  const uv = faceShape.attributes.uv;
+  for (let i=0; i<uv.count; i++) uv.setXY(i,uv.getX(i)/tileWidth+.5,uv.getY(i)/tileWidth+.5);
   const innerMaterial = new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
   const tones = [0x203149,0x233448,0x24394f,0x354b60,0x203248,0x2a3a50,0x263748];
   const roughness = [.12,.38,.82,.7,.18,.46,.88];
@@ -93,11 +104,15 @@ export function createStudioCube(canvas, pieces) {
     rig.add(mesh);
     return mesh;
   }
-  const surfaces = [...tiles,innerMaterial].map((material, finish) => {
+  const surfaces = tiles.map((material, finish) => {
     const faces = pieces.flatMap(piece => piece.faces
-      .filter(face => (face.color ? face.finish : tiles.length) === finish)
+      .filter(face => face.color && face.finish === finish)
       .map(face => ({piece,face,rest:new THREE.Matrix4()})));
     return {mesh:batch(faceShape,material,faces.length),faces};
+  });
+  surfaces.push({
+    mesh:batch(bodyShape,innerMaterial,pieces.length),
+    faces:pieces.map(piece=>({piece,rest:new THREE.Matrix4()}))
   });
   const u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
   const turnMatrix = new THREE.Matrix4(), pieceMatrix = new THREE.Matrix4();
@@ -108,7 +123,8 @@ export function createStudioCube(canvas, pieces) {
     for (const {mesh,faces} of surfaces) {
       let changed=false;
       faces.forEach(({piece,face,rest},i)=>{
-        if (dirty) {
+        if (dirty && !face) rest.makeTranslation(...piece.center);
+        else if (dirty) {
           u.fromArray(face.tangent);
           n.fromArray(face.normal);
           v.crossVectors(n,u);
@@ -130,14 +146,15 @@ export function createStudioCube(canvas, pieces) {
     invalidate() { dirty = true; },
     draw(size, move, view) {
       if (canvas.width !== size) renderer.setSize(size,size,false);
-      rig.rotation.set(view.pitch,view.yaw,-.055,'ZXY');
+      rig.position.y=view.lift;
+      rig.rotation.set(view.pitch+view.tilt,view.yaw,-view.tilt,'ZXY');
       if (move || dirty || wasTurning) syncLayer(move);
       renderer.render(stage,camera);
     },
     dispose() {
       surfaces.forEach(({mesh}) => mesh.dispose());
       reflection.dispose();
-      faceShape.dispose(); innerMaterial.dispose();
+      bodyShape.dispose(); faceShape.dispose(); innerMaterial.dispose();
       tiles.forEach(material => {material.map?.dispose(); material.dispose();});
       renderer.dispose();
     }

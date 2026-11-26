@@ -3,7 +3,7 @@ const HALF_PI = Math.PI / 2;
 const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 // The original cube's four navy finishes under its cool key and hemisphere lights.
 const shell = ['#03070c','#050b13','#07101b','#091525'];
-const homeView = { yaw: -.59, pitch: .46 };
+export const homeView = Object.freeze({yaw:-Math.PI/4, pitch:Math.atan(1/Math.sqrt(2)), lift:0, tilt:0});
 const add = (a,b) => a.map((v,i) => v+b[i]);
 const scale = (v,n) => v.map(x => x*n);
 const dot = (a,b) => a.reduce((sum,x,i) => sum+x*b[i],0);
@@ -49,11 +49,11 @@ export function makeCube() {
 }
 
 function camera(v,viewpoint) {
-  return rotate(rotate(rotate(v,1,viewpoint.yaw),0,viewpoint.pitch),2,-.055);
+  return rotate(rotate(rotate(v,1,viewpoint.yaw),0,viewpoint.pitch+viewpoint.tilt),2,-viewpoint.tilt);
 }
 function project(v) {
-  const k = 94 * 11.5 / (11.5-v[2]);
-  return [256+v[0]*k,246-v[1]*k];
+  const k = 94 * 31 / (31-v[2]);
+  return [256+v[0]*k,256-v[1]*k];
 }
 function rounded(points, radius) {
   const towards = (from,to) => from.map((v,i) => v+(to[i]-v)*radius);
@@ -91,21 +91,22 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
     const turning = move && piece.center[move.axis] === move.layer;
     const view = v => camera(turning ? rotate(v,move.axis,move.angle) : v,viewpoint);
     const center = view(piece.center);
+    center[1]+=viewpoint.lift;
     for (const face of piece.faces) {
       const n=view(face.normal);
-      const position=add(center,scale(n,.485));
-      if (dot(n,[-position[0],-position[1],11.5-position[2]]) <= 0) continue;
+      const position=add(center,scale(n,.5));
+      if (dot(n,[-position[0],-position[1],31-position[2]]) <= 0) continue;
       const across = face.tangent;
       const u=view(across), v=view(cross(face.normal,across));
-      const square = size => [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b]) =>
-        project(add(position,add(scale(u,a*size),scale(v,b*size)))));
+      const square = (size, plane=position) => [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b]) =>
+        project(add(plane,add(scale(u,a*size),scale(v,b*size)))));
       const light=Math.max(.12,.42+.46*n[1]+.26*n[2]-.18*n[0]);
       const origin = project(position);
       const dx = project(add(position,u)), dy = project(add(position,v));
       const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
-        depth:position[2], body:rounded(square(.485),.048), plastic:tone('#101a28',.85+light*.42),
-        sticker:face.color && rounded(square(.476),.048),
+        depth:position[2], body:rounded(square(.5),.12), plastic:tone('#101a28',.85+light*.42),
+        sticker:face.color && rounded(square(.41,add(position,scale(n,.0246))),.15),
         finish:face.finish,
         textureMatrix:[dx[0]-origin[0],dx[1]-origin[1],dy[0]-origin[0],dy[1]-origin[1],...origin],
         edge:tone('#7895b7',light*.65),
@@ -192,9 +193,17 @@ export function mountCube(canvas) {
     } else {
       move={axis,layer,direction,elapsed:0,angle:0};
     }
-    untilTurn=2050;
+    untilTurn=920;
   }
 
+  // Group four layer moves between eased revolutions of the entire cube.
+  let orbitTime=0;
+  function orbitAngle(ms) {
+    const period=5700;
+    const progress=Math.max(0,Math.min(1,(ms%period-3650)/1950));
+    const eased=progress<.5 ? 4*progress**3 : 1-4*(1-progress)**3;
+    return -2*Math.PI*(Math.floor(ms/period)+eased);
+  }
   function schedule() {
     const moving = !paused && !drag || move && manualTurn || dragTarget;
     if (ready && !frame && onScreen && !document.hidden && moving) frame=requestAnimationFrame(tick);
@@ -212,14 +221,19 @@ export function mountCube(canvas) {
       viewpoint.pitch+=(dragTarget.pitch-viewpoint.pitch)*blend;
       if (Math.abs(dragTarget.yaw-viewpoint.yaw)+Math.abs(dragTarget.pitch-viewpoint.pitch)<.001) dragTarget=null;
     } else if (!paused && !drag) {
-      viewpoint.yaw+=dt*.00047;
+      const next=orbitTime+dt;
+      viewpoint.yaw+=orbitAngle(next)-orbitAngle(orbitTime);
+      orbitTime=next;
+      const wave=Math.sin(orbitTime*Math.PI/1500);
+      viewpoint.lift=.06*wave;
+      viewpoint.tilt=.005*wave;
       untilTurn-=dt;
-      if (untilTurn<=0) startTurn();
+      if (untilTurn<=0 && orbitTime%5700<3500) startTurn();
     }
     if (move && (manualTurn || (!paused && !drag))) {
       move.elapsed+=dt;
-      const t=Math.min(1,move.elapsed/1000);
-      const eased=t*t*t*(t*(6*t-15)+10);
+      const t=Math.min(1,move.elapsed/200);
+      const eased=Math.sin(t*HALF_PI);
       move.angle=move.direction*HALF_PI*eased;
       if (t===1) {
         turn(pieces,move.axis,move.layer,move.direction);
@@ -269,6 +283,13 @@ export function mountCube(canvas) {
   });
   reduced.addEventListener('change',()=>{
     paused=reduced.matches;
+    if (paused && move) {
+      turn(pieces,move.axis,move.layer,move.direction);
+      studio?.invalidate();
+      move=null;
+      manualTurn=false;
+      draw();
+    }
     requestAnimationFrame(checkVisibility);
     refresh();
   });
@@ -289,7 +310,7 @@ export function mountCube(canvas) {
     startRenderer();
     return;
   }
-  import('./cube-lighting.mjs?v=8186f7c737').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=80fc047dc0').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();
