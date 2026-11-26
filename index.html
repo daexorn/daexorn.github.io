@@ -16,10 +16,10 @@
   <link rel="icon" href="data:,">
   <link rel="preload" href="assets/fonts/host-grotesk.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/motion/motion.css">
-  <link rel="stylesheet" href="style.css?v=4e45044de8">
+  <link rel="stylesheet" href="style.css?v=e9794a8b09">
   <script>document.documentElement.classList.add('m-enter');setTimeout(() => document.documentElement.classList.add('m-enter-done'), 700)</script>
   <script type="module" src="assets/motion/motion.js"></script>
-  <script type="module" src="script.js?v=fbf788420f"></script>
+  <script type="module" src="script.js?v=d05ca7a187"></script>
   <script type="module" src="assets/moments/moments.js"></script>
 </head>
 <body>
@@ -45,66 +45,74 @@
   </nav>
   <main id="main">
     <section id="top" class="hero" data-enter aria-labelledby="headline">
-      <div class="wrap hero-layout">
-        <div class="hero-text">
-          <p class="eyebrow">Data science · Telegram bots</p>
-          <h1 id="headline">maisdev</h1>
-          <p class="intro">I’m Ilya. I write tools for Telegram chats and study the numbers behind everyday questions.</p>
-          <a class="contact btn" href="#notebook">Open my notebook <span aria-hidden="true">↓</span></a>
+      <div class="scene-panel">
+        <div class="wrap hero-layout">
+          <div class="hero-text">
+            <p class="eyebrow">Data science · Telegram bots</p>
+            <h1 id="headline">maisdev</h1>
+            <p class="intro">I’m Ilya. I write tools for Telegram chats and study the numbers behind everyday questions.</p>
+            <a class="contact" href="#notebook">Open my notebook</a>
+          </div>
+          <div class="stage hero__stage" data-enter-media>
+            <button class="cube" type="button" aria-label="Turn a layer of the dark Rubik’s cube">
+              <img fetchpriority="high" src="assets/cube-poster.webp?v=05c317c6b8" width="512" height="512" alt="">
+              <canvas aria-hidden="true" width="512" height="512"></canvas>
+            </button>
+          </div>
+          <a class="next-section" href="#about" aria-label="Scroll to About">Scroll</a>
+          <p class="hero-meta"><span>19 years old</span><span>Data science</span><span>Open to ideas</span></p>
         </div>
-        <div class="stage hero__stage" data-enter-media>
-          <button class="cube" type="button" aria-label="Turn a layer of the dark Rubik’s cube">
-            <img fetchpriority="high" src="assets/cube-poster.webp?v=05c317c6b8" width="512" height="512" alt="">
-            <canvas aria-hidden="true" width="512" height="512"></canvas>
-          </button>
-        </div>
-        <a class="next-section" href="#about" aria-label="Scroll to About">Scroll <span aria-hidden="true">↓</span></a>
-        <p class="hero-meta"><span>19 years old</span><span>Data science</span><span>Open to ideas</span></p>
       </div>
     </section>
     <section class="about section" id="about" aria-labelledby="about-title" data-moment="word-highlight">
-      <div class="wrap about-layout">
-        <h2 data-reveal="up" id="about-title" class="section-label">About me</h2>
-        <div class="about-columns">
-          <p class="mo-wh__text">I like the moment a <strong>messy dataset</strong> starts to make sense.</p>
-          <p data-reveal="left" class="body-copy">I’m Ilya, a data science student. I also build Telegram bots and explore how blockchain networks agree on a shared history. Have an idea for a chat tool? Send it my way.</p>
-        </div>
-        <div data-reveal="up" class="socials" aria-label="Social links">
-          <a href="https://discord.gg/TpM7jDhBMN"><img src="assets/brands/discord.svg" width="24" height="20" alt="">Discord <span aria-hidden="true">↗</span></a>
-          <a href="https://t.me/mssvr"><img src="assets/brands/telegram.svg" width="24" height="20" alt="">Telegram <span aria-hidden="true">↗</span></a>
+      <div class="scene-panel">
+        <div class="wrap about-layout">
+          <h2 id="about-title" class="section-label">About me</h2>
+          <div class="about-columns">
+            <p class="mo-wh__text">I like the moment a <strong>messy dataset</strong> starts to make sense.</p>
+            <p class="body-copy">I’m Ilya, a data science student. I also build Telegram bots and explore how blockchain networks agree on a shared history. Have an idea for a chat tool? Send it my way.</p>
+          </div>
+          <div class="socials" aria-label="Social links">
+            <a href="https://discord.gg/TpM7jDhBMN"><img src="assets/brands/discord.svg" width="24" height="20" alt="">Discord</a>
+            <a href="https://t.me/mssvr"><img src="assets/brands/telegram.svg" width="24" height="20" alt="">Telegram</a>
+          </div>
         </div>
       </div>
     </section>
     <section class="section notebook" id="notebook" aria-labelledby="notebook-heading">
-      <div class="wrap study-layout">
-        <div class="study-copy" data-reveal="right">
-          <p class="section-label">Data notebook</p>
-          <h2 id="notebook-heading">What counts as a typical reply?</h2>
-          <p>Five messages get a reply in under ten seconds. A sixth takes a full minute. Try including that last reply and see which number moves more.</p>
+      <div class="scene-panel">
+        <div class="wrap study-layout">
+          <div class="study-copy">
+            <p class="section-label">Data notebook</p>
+            <h2 id="notebook-heading">What counts as a typical reply?</h2>
+            <p>Five messages get a reply in under ten seconds. A sixth takes a full minute. Try including that last reply and see which number moves more.</p>
+          </div>
+          <figure class="experiment">
+            <figcaption>Example reply times <span>seconds</span></figcaption>
+            <ol class="samples" aria-label="Reply times in seconds">
+              <li style="--time:4"><span>4</span></li><li style="--time:5"><span>5</span></li><li style="--time:6"><span>6</span></li><li style="--time:7"><span>7</span></li><li style="--time:8"><span>8</span></li><li style="--time:60" class="slow" hidden><span>60</span></li>
+            </ol>
+            <div class="readings" aria-live="polite"><p>Mean<strong id="mean">6 s</strong></p><p>Median<strong id="median">6 s</strong></p></div>
+            <button class="demo-action" type="button" id="sample-toggle" aria-pressed="false" hidden>Include the 60 s reply</button>
+          </figure>
         </div>
-        <figure class="experiment" data-reveal="zoom">
-          <figcaption>Example reply times <span>seconds</span></figcaption>
-          <ol class="samples" aria-label="Reply times in seconds">
-            <li style="--time:4"><span>4</span></li><li style="--time:5"><span>5</span></li><li style="--time:6"><span>6</span></li><li style="--time:7"><span>7</span></li><li style="--time:8"><span>8</span></li><li style="--time:60" class="slow" hidden><span>60</span></li>
-          </ol>
-          <div class="readings" aria-live="polite"><p>Mean<strong id="mean">6 s</strong></p><p>Median<strong id="median">6 s</strong></p></div>
-          <button class="demo-action" type="button" id="sample-toggle" aria-pressed="false" hidden>Include the 60 s reply</button>
-        </figure>
       </div>
     </section>
     <section class="section mechanism" id="cube-study" aria-labelledby="mechanism-heading">
-      <div class="wrap study-layout">
-        <div class="study-copy" data-reveal="right">
-          <p class="section-label">Cube study</p>
-          <h2 id="mechanism-heading">A quarter turn.</h2>
-          <p>Follow the marked corner of the front face. One turn takes it to the next corner. Four clockwise turns bring every tile back to its starting position.</p>
-          <a class="return-link" href="#top">Try the 3D cube <span aria-hidden="true">↗</span></a>
+      <div class="scene-panel">
+        <div class="wrap study-layout">
+          <div class="study-copy">
+            <p class="section-label">Cube study</p>
+            <h2 id="mechanism-heading">A quarter turn.</h2>
+            <p>Follow the marked corner of the front face. One turn takes it to the next corner. Four clockwise turns bring every tile back to its starting position.</p>
+            <a class="return-link" href="#top">Try the 3D cube</a>
+          </div>
+          <figure class="experiment mechanism-demo">
+            <figcaption>Front face <span id="degrees" aria-live="polite">0°</span></figcaption>
+            <div class="turn-diagram" role="img" aria-label="Marked tile in the top left corner"><i class="marked"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <button class="demo-action" type="button" id="quarter-turn" hidden>Turn clockwise</button>
+          </figure>
         </div>
-        <figure class="experiment mechanism-demo" data-reveal="flip">
-          <figcaption>Front face <span id="degrees" aria-live="polite">0°</span></figcaption>
-          <div class="turn-diagram" role="img" aria-label="Marked tile in the top left corner"><i class="marked"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <button class="demo-action" type="button" id="quarter-turn" hidden>Turn clockwise <span aria-hidden="true">↻</span></button>
-        </figure>
       </div>
     </section>
   </main>

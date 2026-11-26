@@ -96,38 +96,42 @@ export function createStudioCube(canvas, pieces) {
   const surfaces = [...tiles,innerMaterial].map((material, finish) => {
     const faces = pieces.flatMap(piece => piece.faces
       .filter(face => (face.color ? face.finish : tiles.length) === finish)
-      .map(face => ({piece,face})));
+      .map(face => ({piece,face,rest:new THREE.Matrix4()})));
     return {mesh:batch(faceShape,material,faces.length),faces};
   });
-  const basis = new THREE.Matrix4(), u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
+  const u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
   const turnMatrix = new THREE.Matrix4(), pieceMatrix = new THREE.Matrix4();
   const axes = [new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)];
-  let dirty = true;
-  function placePiece(piece,move) {
-    pieceMatrix.makeTranslation(...piece.center);
-    if (move && piece.center[move.axis] === move.layer) pieceMatrix.premultiply(turnMatrix);
-  }
+  let dirty = true, wasTurning = false;
   function syncLayer(move) {
     if (move) turnMatrix.makeRotationAxis(axes[move.axis],move.angle);
     for (const {mesh,faces} of surfaces) {
-      faces.forEach(({piece,face},i)=>{
-        placePiece(piece,move);
-        u.fromArray(face.tangent);
-        n.fromArray(face.normal);
-        v.crossVectors(n,u);
-        basis.makeBasis(u,v,n).premultiply(pieceMatrix);
-        mesh.setMatrixAt(i,basis);
+      let changed=false;
+      faces.forEach(({piece,face,rest},i)=>{
+        if (dirty) {
+          u.fromArray(face.tangent);
+          n.fromArray(face.normal);
+          v.crossVectors(n,u);
+          rest.makeBasis(u,v,n).setPosition(...piece.center);
+        }
+        if (move && piece.center[move.axis]===move.layer) {
+          mesh.setMatrixAt(i,pieceMatrix.multiplyMatrices(turnMatrix,rest));
+        } else if (dirty || wasTurning && !move) {
+          mesh.setMatrixAt(i,rest);
+        } else return;
+        changed=true;
       });
-      mesh.instanceMatrix.needsUpdate = true;
+      if (changed) mesh.instanceMatrix.needsUpdate=true;
     }
+    dirty=false;
+    wasTurning=Boolean(move);
   }
   return {
     invalidate() { dirty = true; },
     draw(size, move, view) {
       if (canvas.width !== size) renderer.setSize(size,size,false);
       rig.rotation.set(view.pitch,view.yaw,-.055,'ZXY');
-      if (move || dirty) syncLayer(move);
-      dirty = Boolean(move);
+      if (move || dirty || wasTurning) syncLayer(move);
       renderer.render(stage,camera);
     },
     dispose() {

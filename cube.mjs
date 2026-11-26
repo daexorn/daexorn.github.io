@@ -133,10 +133,21 @@ export function mountCube(canvas) {
   let dragTarget = null;
   let manualTurn = false;
   let renderWidth = scene.clientWidth;
+  let pixelRatio = Math.min(devicePixelRatio || 1, 1.5);
+  let samples = 0, lateFrames = 0;
+  function sampleFrameTime(ms) {
+    if (!studio || ms<=0 || ms>150 || pixelRatio<=.8) return;
+    samples++;
+    if (ms>22) lateFrames++;
+    if (samples===40) {
+      if (lateFrames>=10) pixelRatio=Math.max(.8,pixelRatio*.85);
+      samples=lateFrames=0;
+    }
+  }
   function draw() {
     if (!ready) return;
     if (studio) {
-      studio.draw(Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio,1.5))),move,viewpoint);
+      studio.draw(Math.max(1,Math.round(renderWidth*pixelRatio)),move,viewpoint);
       return;
     }
     const size=Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio||1,1.5)));
@@ -191,7 +202,9 @@ export function mountCube(canvas) {
   function tick(now) {
     frame=0;
     if (!onScreen || document.hidden) return;
-    const dt=lastTime===null ? 0 : Math.min(now-lastTime,48);
+    const elapsed=lastTime===null ? 0 : now-lastTime;
+    sampleFrameTime(elapsed);
+    const dt=Math.min(elapsed,48);
     lastTime=now;
     if (dragTarget) {
       const blend=reduced.matches ? 1 : 1-Math.exp(-dt/35);
@@ -227,7 +240,14 @@ export function mountCube(canvas) {
     renderWidth=scene.clientWidth;
     draw();
   }).observe(scene);
-  new IntersectionObserver(([entry])=>{onScreen=entry.isIntersecting;refresh();}).observe(scene);
+  const panel=scene.closest('.scene-panel');
+  let intersects=false;
+  function checkVisibility() {
+    const visible=intersects && (!panel || getComputedStyle(panel).visibility!=='hidden');
+    if (visible!==onScreen) { onScreen=visible;refresh(); }
+  }
+  new IntersectionObserver(([entry])=>{intersects=entry.isIntersecting;checkVisibility();}).observe(scene);
+  if (panel) new MutationObserver(checkVisibility).observe(panel,{attributes:true,attributeFilter:['class']});
   scene.addEventListener('pointerdown',event=>{
     if (!event.isPrimary || event.button!==0) return;
     dragged=false;
@@ -249,6 +269,7 @@ export function mountCube(canvas) {
   });
   reduced.addEventListener('change',()=>{
     paused=reduced.matches;
+    requestAnimationFrame(checkVisibility);
     refresh();
   });
   document.addEventListener('visibilitychange',refresh);
@@ -268,7 +289,7 @@ export function mountCube(canvas) {
     startRenderer();
     return;
   }
-  import('./cube-lighting.mjs?v=2844a3fbe9').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=8186f7c737').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();

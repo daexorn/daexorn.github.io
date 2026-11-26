@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=667a54c1b2';
+import { mountCube } from './cube.mjs?v=22fa7094f8';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -36,70 +36,91 @@ if (CSS.supports('backdrop-filter','url(#nav-lens)') && /Chrome|Chromium|Edg\//.
 
 const sections = [...document.querySelectorAll('main > section')];
 const indexLinks = [...document.querySelectorAll('.section-index a, .site-header nav a')];
-function updateNav() {
-  const current = sections.findLast(section => section.getBoundingClientRect().top <= innerHeight / 2) || sections[0];
-  for (const section of sections) section.classList.toggle('is-current',section===current);
+const main = document.querySelector('main');
+const panels = sections.map(section=>section.querySelector('.scene-panel'));
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+let currentIndex = -1, frame = 0;
+let starts = [], overflow = [];
+const clamp = value=>Math.max(0,Math.min(1,value));
+
+function selectSection(index) {
+  if (index===currentIndex) return;
+  currentIndex=index;
+  sections.forEach((section,i)=>{
+    section.classList.toggle('is-current',i===index);
+    panels[i].inert=!motionPreference.matches && i!==index;
+  });
   for (const link of indexLinks) {
-    link.toggleAttribute('data-past',sections.indexOf(document.getElementById(link.hash.slice(1)))<sections.indexOf(current));
-    if (link.hash === '#' + current.id) link.setAttribute('aria-current','location');
+    const i=sections.findIndex(section=>link.hash==='#'+section.id);
+    link.toggleAttribute('data-past',i<index);
+    if (i===index) link.setAttribute('aria-current','location');
     else link.removeAttribute('aria-current');
   }
 }
-window.addEventListener('scroll',updateNav,{passive:true});
-window.addEventListener('resize',updateNav);
-updateNav();
+
+function paint() {
+  frame=0;
+  if (motionPreference.matches) {
+    selectSection(Math.max(0,sections.findLastIndex(section=>section.getBoundingClientRect().top<=innerHeight*.5)));
+    return;
+  }
+  const y=Math.max(0,scrollY);
+  const index=Math.max(0,starts.findLastIndex(start=>start<=y));
+  const local=y-starts[index];
+  const travel=index+1<starts.length ? starts[index+1]-starts[index]-overflow[index] : 0;
+  const raw=travel>0 ? clamp((local-overflow[index])/travel) : 0;
+  const progress=raw*raw*(3-2*raw);
+  selectSection(index+(progress>=.5 ? 1 : 0));
+  panels.forEach((panel,i)=>{
+    const outgoing=i===index, incoming=i===index+1 && progress>0;
+    panel.classList.toggle('on-stage',outgoing || incoming);
+    if (!outgoing && !incoming) return;
+    const enter=incoming ? 1-progress : 0, exit=outgoing ? progress : 0;
+    panel.style.setProperty('--enter',enter.toFixed(4));
+    panel.style.setProperty('--exit',exit.toFixed(4));
+    // The incoming background dissolves over the outgoing one. Foreground
+    // layers have independent camera paths and a shorter text exposure.
+    panel.style.setProperty('--exposure',incoming ? progress.toFixed(4) : '1');
+    panel.style.setProperty('--type-ink',(incoming ? clamp((progress-.42)/.38) : clamp(1-progress/.42)).toFixed(4));
+    panel.style.setProperty('--reading-offset',-(outgoing ? Math.min(local,overflow[i]) : 0)+'px');
+  });
+}
+function requestPaint() {
+  if (!frame) frame=requestAnimationFrame(paint);
+}
+function measure() {
+  if (!motionPreference.matches) {
+    const heights=panels.map(panel=>Math.ceil(panel.offsetHeight));
+    overflow=heights.map(height=>Math.max(0,height-innerHeight));
+    sections.forEach((section,i)=>section.style.setProperty('--track-height',heights[i]+'px'));
+    starts=sections.map(section=>section.offsetTop);
+  }
+  paint();
+}
+function configureMotion() {
+  main.classList.toggle('scene-film',!motionPreference.matches);
+  currentIndex=-1;
+  measure();
+}
+let scrollIdle;
+window.addEventListener('scroll',()=>{
+  if (!motionPreference.matches) {
+    document.documentElement.classList.add('scene-travelling');
+    clearTimeout(scrollIdle);
+    scrollIdle=setTimeout(()=>document.documentElement.classList.remove('scene-travelling'),150);
+  }
+  requestPaint();
+},{passive:true});
+window.addEventListener('resize',measure);
+const panelSize=new ResizeObserver(measure);
+panels.forEach(panel=>panelSize.observe(panel));
+motionPreference.addEventListener('change',configureMotion);
+configureMotion();
+
 import('./assets/moments/moments.js').then(async ({ready})=>{
   await ready;
   document.querySelectorAll('#about .mo-w').forEach((word,index)=>word.style.setProperty('--word-order',index));
 });
-
-// The document owns scrolling. Every pose is derived from the same scroll position
-// whether the visitor uses touch, a wheel, a keyboard or an anchor link.
-const hero = document.querySelector('.hero');
-const scene = hero.querySelector('.hero-layout');
-const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-const entrances = [...document.querySelectorAll('[data-reveal]')];
-let sceneFrame = 0;
-let observer;
-
-function paintScene() {
-  sceneFrame = 0;
-  const travel = hero.offsetHeight - scene.offsetHeight;
-  const progress = travel > 0 ? Math.max(0, Math.min(1, -hero.getBoundingClientRect().top / travel)) : 0;
-  scene.style.setProperty('--travel', progress.toFixed(4));
-}
-function scheduleScene() {
-  if (!sceneFrame && !motionPreference.matches) sceneFrame = requestAnimationFrame(paintScene);
-}
-function configureMotion() {
-  observer?.disconnect();
-  observer = null;
-  cancelAnimationFrame(sceneFrame);
-  sceneFrame = 0;
-  hero.classList.toggle('scroll-scene', !motionPreference.matches);
-  for (const item of entrances) item.classList.remove('awaiting-entry');
-  if (motionPreference.matches) {
-    scene.style.removeProperty('--travel');
-    return;
-  }
-  paintScene();
-  if (!('IntersectionObserver' in window)) return;
-  observer = new IntersectionObserver(entries => {
-    for (const {target,isIntersecting,boundingClientRect} of entries) {
-      if (isIntersecting) target.classList.remove('awaiting-entry');
-      else if (boundingClientRect.top >= innerHeight * .94) target.classList.add('awaiting-entry');
-    }
-  }, {rootMargin:'0px 0px -6% 0px'});
-  for (const item of entrances) {
-    if (item.getBoundingClientRect().top >= innerHeight) item.classList.add('awaiting-entry');
-    observer.observe(item);
-  }
-}
-window.addEventListener('scroll',scheduleScene,{passive:true});
-window.addEventListener('resize',scheduleScene);
-new ResizeObserver(scheduleScene).observe(scene);
-motionPreference.addEventListener('change',configureMotion);
-configureMotion();
 
 const sampleToggle = document.querySelector('#sample-toggle');
 const slowReply = document.querySelector('.samples .slow');
