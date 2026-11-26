@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs';
+import { mountCube } from './cube.mjs?v=e0ccfcd385';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -65,3 +65,30 @@ if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: re
   }, {threshold: 0.08});
   document.querySelectorAll('main > section:not(.hero) > .wrap').forEach(el => arrival.observe(el));
 }
+
+const sampleToggle = document.querySelector('#sample-toggle');
+const slowReply = document.querySelector('.samples .slow');
+sampleToggle.hidden = false;
+sampleToggle.addEventListener('click', () => {
+  const includeSlow = slowReply.hidden;
+  slowReply.hidden = !includeSlow;
+  sampleToggle.setAttribute('aria-pressed', String(includeSlow));
+  const times = [...document.querySelectorAll('.samples li:not([hidden])')].map(item => Number(item.textContent));
+  const middle = (times.length - 1) / 2;
+  const mean = times.reduce((total, time) => total + time, 0) / times.length;
+  const median = (times[Math.floor(middle)] + times[Math.ceil(middle)]) / 2;
+  document.querySelector('#mean').textContent = mean + ' s';
+  document.querySelector('#median').textContent = median + ' s';
+});
+
+const quarterTurn = document.querySelector('#quarter-turn');
+const diagram = document.querySelector('.turn-diagram');
+const corners = ['top left', 'top right', 'bottom right', 'bottom left'];
+let turns = 0;
+quarterTurn.hidden = false;
+quarterTurn.addEventListener('click', () => {
+  turns++;
+  diagram.style.transform = 'rotate(' + (turns * 90) + 'deg)';
+  diagram.setAttribute('aria-label', 'Marked tile in the ' + corners[turns % 4] + ' corner');
+  document.querySelector('#degrees').textContent = (turns % 4 * 90) + '°';
+});

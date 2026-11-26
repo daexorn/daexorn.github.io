@@ -126,9 +126,14 @@ export function mountCube(canvas) {
   const toggle=scene.parentElement.querySelector('.spin-toggle');
   const etchings=Array.from({length:7},(_,finish)=>new Path2D(etching(finish,(x,y)=>x+' '+y)));
   let move=null, frame=0, lastTime=null, onScreen=false, sequence=0;
-  let paused=false, drag=null, dragged=false, untilTurn=1600;
+  let paused=reduced.matches, drag=null, dragged=false, untilTurn=1600;
   const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
+  let studio = null;
   function draw() {
+    if (studio) {
+      studio.draw(Math.max(1,Math.round(scene.clientWidth*Math.min(devicePixelRatio,1.5))),move,viewpoint);
+      return;
+    }
     const size=Math.max(1,Math.round(canvas.clientWidth*Math.min(devicePixelRatio||1,2)));
     if (canvas.width!==size || canvas.height!==size) canvas.width=canvas.height=size;
     ctx.setTransform(size/512,0,0,size/512,0,0);
@@ -139,8 +144,13 @@ export function mountCube(canvas) {
       ctx.strokeStyle='#02050b';ctx.lineWidth=1.3;ctx.stroke(body);
       if (!f.sticker) continue;
       const tile=new Path2D(f.sticker);
-      const glaze=ctx.createLinearGradient(60,70,410,435);
-      glaze.addColorStop(0,f.light);glaze.addColorStop(1,f.dark);
+      const [dx,dy,,,x,y]=f.textureMatrix;
+      const glaze=ctx.createLinearGradient(x-dx*.6,y-dy*.6-20,x+dx*.6,y+dy*.6+20);
+      glaze.addColorStop(0,f.light);
+      const polished=f.finish===0 || f.finish===4;
+      const shine=.48+.28*Math.sin(viewpoint.yaw+x/210);
+      glaze.addColorStop(shine,tone(f.light,polished ? 2.3 : 1.25,polished ? 16 : 6));
+      glaze.addColorStop(1,f.dark);
       ctx.fillStyle=glaze;ctx.fill(tile);
       if (f.finish!==0) {
         ctx.save();ctx.clip(tile);
@@ -155,17 +165,17 @@ export function mountCube(canvas) {
   function startTurn() {
     if (move) return;
     const [axis,layer,direction]=moves[sequence++%moves.length];
-    if (reduced.matches) {
+    if (reduced.matches && paused) {
       turn(pieces,axis,layer,direction);
       draw();
     } else {
       move={axis,layer,direction,elapsed:0,angle:0};
     }
-    untilTurn=4800;
+    untilTurn=3500;
   }
 
   function schedule() {
-    if (!frame && onScreen && !document.hidden && (move || (!paused && !reduced.matches && !drag))) {
+    if (!frame && onScreen && !document.hidden && (move || (!paused && !drag))) {
       frame=requestAnimationFrame(tick);
     }
   }
@@ -174,10 +184,10 @@ export function mountCube(canvas) {
     if (!onScreen || document.hidden) return;
     const delta=lastTime===null ? 0 : now-lastTime;
     if (lastTime===null || delta>=30) {
-      const dt=Math.min(delta,80);
+      const dt=Math.min(delta,250);
       lastTime=now;
-      if (!paused && !reduced.matches && !drag) {
-        viewpoint.yaw+=dt*.00019;
+      if (!paused && !drag) {
+        viewpoint.yaw+=dt*.00046;
         untilTurn-=dt;
         if (untilTurn<=0) startTurn();
       }
@@ -198,6 +208,7 @@ export function mountCube(canvas) {
   }
 
   toggle.hidden=false;
+  toggle.textContent=paused ? "Resume rotation" : "Pause rotation";
   toggle.addEventListener('click',()=>{
     paused=!paused;
     if (paused && move) { turn(pieces,move.axis,move.layer,move.direction);move=null;draw(); }
@@ -226,7 +237,33 @@ export function mountCube(canvas) {
     if (!dragged || event.detail===0) { startTurn();schedule(); }
     dragged=false;
   });
-  reduced.addEventListener('change',refresh);
+  reduced.addEventListener('change',()=>{
+    paused=reduced.matches;
+    toggle.textContent=paused ? 'Resume rotation' : 'Pause rotation';
+    refresh();
+  });
   document.addEventListener('visibilitychange',refresh);
   draw();
+
+  // A blocked or lost WebGL context leaves the animated 2D renderer available.
+  const surface = document.createElement('canvas');
+  surface.setAttribute('aria-hidden','true');
+  if (!surface.getContext('webgl2',{alpha:true,antialias:true,powerPreference:'low-power'})) return;
+  import('./cube-lighting.mjs?v=d1a07530ef').then(({createStudioCube})=>{
+    studio=createStudioCube(surface,pieces);
+    surface.addEventListener('webglcontextlost',()=>{
+      studio?.dispose();
+      studio=null;
+      surface.remove();
+      canvas.hidden=false;
+      draw();
+    },{once:true});
+    draw();
+    scene.append(surface);
+    canvas.hidden=true;
+  }).catch(()=>{
+    studio?.dispose();
+    studio=null;
+    draw();
+  });
 }
