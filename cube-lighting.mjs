@@ -62,6 +62,8 @@ export function createStudioCube(canvas, pieces) {
   camera.position.z = 31;
   const rig = new THREE.Group();
   rig.rotation.order = 'ZXY';
+  const spinner = new THREE.Group();
+  rig.add(spinner);
   stage.add(rig);
   stage.add(new THREE.HemisphereLight(0xc4ddff, 0x102034, 1.4));
   const key = new THREE.DirectionalLight(0xd7e8ff, 2.1);
@@ -101,7 +103,7 @@ export function createStudioCube(canvas, pieces) {
     const mesh = new THREE.InstancedMesh(geometry, material, count);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
-    rig.add(mesh);
+    spinner.add(mesh);
     return mesh;
   }
   const surfaces = tiles.map((material, finish) => {
@@ -115,11 +117,15 @@ export function createStudioCube(canvas, pieces) {
     faces:pieces.map(piece=>({piece,rest:new THREE.Matrix4()}))
   });
   const u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
-  const turnMatrix = new THREE.Matrix4(), pieceMatrix = new THREE.Matrix4();
+  const clockwise = new THREE.Matrix4(), counterclockwise = new THREE.Matrix4();
+  const pieceMatrix = new THREE.Matrix4();
   const axes = [new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)];
   let dirty = true, wasTurning = false;
   function syncLayer(move) {
-    if (move) turnMatrix.makeRotationAxis(axes[move.axis],move.angle);
+    if (move) {
+      clockwise.makeRotationAxis(axes[move.axis],move.angle);
+      counterclockwise.makeRotationAxis(axes[move.axis],-move.angle);
+    }
     for (const {mesh,faces} of surfaces) {
       let changed=false;
       faces.forEach(({piece,face,rest},i)=>{
@@ -130,7 +136,9 @@ export function createStudioCube(canvas, pieces) {
           v.crossVectors(n,u);
           rest.makeBasis(u,v,n).setPosition(...piece.center);
         }
-        if (move && piece.center[move.axis]===move.layer) {
+        const direction=move && move.directions[piece.center[move.axis]+1];
+        if (direction) {
+          const turnMatrix=direction>0 ? clockwise : counterclockwise;
           mesh.setMatrixAt(i,pieceMatrix.multiplyMatrices(turnMatrix,rest));
         } else if (dirty || wasTurning && !move) {
           mesh.setMatrixAt(i,rest);
@@ -148,6 +156,7 @@ export function createStudioCube(canvas, pieces) {
       if (canvas.width !== size) renderer.setSize(size,size,false);
       rig.position.y=view.lift;
       rig.rotation.set(view.pitch+view.tilt,view.yaw,-view.tilt,'ZXY');
+      spinner.quaternion.setFromAxisAngle(axes[view.spinAxis],view.spinAngle);
       if (move || dirty || wasTurning) syncLayer(move);
       renderer.render(stage,camera);
     },

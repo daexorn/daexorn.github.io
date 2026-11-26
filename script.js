@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=689ae57182';
+import { mountCube } from './cube.mjs?v=a3e25b72ab';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);

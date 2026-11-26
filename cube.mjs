@@ -3,7 +3,7 @@ const HALF_PI = Math.PI / 2;
 const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 // The original cube's four navy finishes under its cool key and hemisphere lights.
 const shell = ['#03070c','#050b13','#07101b','#091525'];
-export const homeView = Object.freeze({yaw:-Math.PI/4, pitch:Math.atan(1/Math.sqrt(2)), lift:0, tilt:0});
+export const homeView = Object.freeze({yaw:-Math.PI/4, pitch:Math.atan(1/Math.sqrt(2)), lift:0, tilt:0, spinAxis:1, spinAngle:0});
 const add = (a,b) => a.map((v,i) => v+b[i]);
 const scale = (v,n) => v.map(x => x*n);
 const dot = (a,b) => a.reduce((sum,x,i) => sum+x*b[i],0);
@@ -49,7 +49,8 @@ export function makeCube() {
 }
 
 function camera(v,viewpoint) {
-  return rotate(rotate(rotate(v,1,viewpoint.yaw),0,viewpoint.pitch+viewpoint.tilt),2,-viewpoint.tilt);
+  const spun=viewpoint.spinAngle ? rotate(v,viewpoint.spinAxis,viewpoint.spinAngle) : v;
+  return rotate(rotate(rotate(spun,1,viewpoint.yaw),0,viewpoint.pitch+viewpoint.tilt),2,-viewpoint.tilt);
 }
 function project(v) {
   const k = 94 * 31 / (31-v[2]);
@@ -88,8 +89,8 @@ function etching(finish,point) {
 export function geometry(pieces, move=null, viewpoint=homeView) {
   const visible=[];
   for (const piece of pieces) {
-    const turning = move && piece.center[move.axis] === move.layer;
-    const view = v => camera(turning ? rotate(v,move.axis,move.angle) : v,viewpoint);
+    const direction = move && move.directions[piece.center[move.axis]+1];
+    const view = v => camera(direction ? rotate(v,move.axis,direction*move.angle) : v,viewpoint);
     const center = view(piece.center);
     center[1]+=viewpoint.lift;
     for (const face of piece.faces) {
@@ -127,12 +128,18 @@ export function mountCube(canvas) {
   const etchings=Array.from({length:7},(_,finish)=>new Path2D(etching(finish,(x,y)=>x+' '+y)));
   let move=null, frame=0, lastTime=null, onScreen=false, sequence=0;
   let paused=reduced.matches, drag=null, dragged=false, untilTurn=850;
-  const moves=[[2,1,1],[1,1,-1],[0,0,1],[2,-1,-1],[0,1,1],[1,0,-1],
-    [2,0,1],[0,-1,-1],[1,-1,1],[2,1,-1],[1,1,1],[0,1,-1]];
+  // Directions refer to the three parallel slices, in grid order (-1, 0, +1).
+  // Opposite faces can twist independently; neighbouring slices can turn as a pair.
+  const moves=[
+    {axis:2, directions:[-1,0,1]}, {axis:0, directions:[0,-1,-1]},
+    {axis:1, directions:[1,0,-1]}, {axis:2, directions:[1,1,0]},
+    {axis:0, directions:[-1,0,1]}, {axis:1, directions:[0,1,1]}
+  ];
   let studio = null;
   let ready = false;
   let dragTarget = null;
   let manualTurn = false;
+  let queuedTap = false;
   let renderWidth = scene.clientWidth;
   let pixelRatio = Math.min(devicePixelRatio || 1, 1.5);
   let samples = 0, lateFrames = 0;
@@ -178,32 +185,44 @@ export function mountCube(canvas) {
       ctx.strokeStyle=f.edge;ctx.lineWidth=1.15;ctx.stroke(tile);
     }
   }
+  function finishTurn() {
+    move.directions.forEach((direction,index)=>{
+      if (direction) turn(pieces,move.axis,index-1,direction);
+    });
+    studio?.invalidate();
+    move=null;
+    manualTurn=false;
+  }
   function startTurn(manual=false) {
     if (move) {
-      if (manual) manualTurn=true;
+      if (manual) queuedTap=true;
       return;
     }
     manualTurn=manual;
-    const [axis,layer,direction]=moves[sequence++%moves.length];
-    if (reduced.matches && paused) {
-      turn(pieces,axis,layer,direction);
-      studio?.invalidate();
-      manualTurn=false;
+    const next=moves[sequence++%moves.length];
+    // A tap still turns a single outside face.
+    const directions=manual ? [0,0,1] : next.directions;
+    move={axis:next.axis,directions,elapsed:0,angle:0};
+    if (paused) {
+      finishTurn();
       draw();
-    } else {
-      move={axis,layer,direction,elapsed:0,angle:0};
     }
-    untilTurn=1320;
+    untilTurn=sequence%3===0 ? 1400 : 840;
   }
 
-  // Group four layer moves between eased revolutions of the entire cube.
-  const spinStart=5500, spinDuration=5200, turnDuration=600;
-  const orbitPeriod=spinStart+spinDuration+300;
+  const turnDuration=600;
+  const spinDuration=5600, orbitPeriod=spinDuration+250;
+  const spinAxes=[1,0,2];
   let orbitTime=0;
-  function orbitAngle(ms) {
-    const progress=Math.max(0,Math.min(1,(ms%orbitPeriod-spinStart)/spinDuration));
-    const eased=progress<.5 ? 4*progress**3 : 1-4*(1-progress)**3;
-    return -2*Math.PI*(Math.floor(ms/orbitPeriod)+eased);
+  function advanceOrbit(dt) {
+    orbitTime=(orbitTime+dt)%(orbitPeriod*spinAxes.length);
+    const segment=Math.floor(orbitTime/orbitPeriod);
+    const t=Math.min(1,(orbitTime%orbitPeriod)/spinDuration);
+    viewpoint.spinAxis=spinAxes[segment];
+    viewpoint.spinAngle=(segment===1 ? 1 : -1)*Math.PI*(1-Math.cos(Math.PI*t));
+    const wave=Math.sin(orbitTime*Math.PI*6/(orbitPeriod*spinAxes.length));
+    viewpoint.lift=.06*wave;
+    viewpoint.tilt=.005*wave;
   }
   function schedule() {
     const moving = !paused && !drag || move && manualTurn || dragTarget;
@@ -222,25 +241,21 @@ export function mountCube(canvas) {
       viewpoint.pitch+=(dragTarget.pitch-viewpoint.pitch)*blend;
       if (Math.abs(dragTarget.yaw-viewpoint.yaw)+Math.abs(dragTarget.pitch-viewpoint.pitch)<.001) dragTarget=null;
     } else if (!paused && !drag) {
-      const next=orbitTime+dt;
-      viewpoint.yaw+=orbitAngle(next)-orbitAngle(orbitTime);
-      orbitTime=next;
-      const wave=Math.sin(orbitTime*Math.PI/1500);
-      viewpoint.lift=.06*wave;
-      viewpoint.tilt=.005*wave;
+      advanceOrbit(dt);
       untilTurn-=dt;
-      if (untilTurn<=0 && orbitTime%orbitPeriod<=spinStart-turnDuration) startTurn();
+      if (untilTurn<=0 && !move) startTurn();
     }
     if (move && (manualTurn || (!paused && !drag))) {
       move.elapsed+=dt;
       const t=Math.min(1,move.elapsed/turnDuration);
       const eased=(1-Math.cos(t*Math.PI))/2;
-      move.angle=move.direction*HALF_PI*eased;
+      move.angle=HALF_PI*eased;
       if (t===1) {
-        turn(pieces,move.axis,move.layer,move.direction);
-        studio?.invalidate();
-        move=null;
-        manualTurn=false;
+        finishTurn();
+        if (queuedTap) {
+          queuedTap=false;
+          startTurn(true);
+        }
       }
     }
     draw();
@@ -285,10 +300,8 @@ export function mountCube(canvas) {
   reduced.addEventListener('change',()=>{
     paused=reduced.matches;
     if (paused && move) {
-      turn(pieces,move.axis,move.layer,move.direction);
-      studio?.invalidate();
-      move=null;
-      manualTurn=false;
+      finishTurn();
+      queuedTap=false;
       draw();
     }
     requestAnimationFrame(checkVisibility);
@@ -311,7 +324,7 @@ export function mountCube(canvas) {
     startRenderer();
     return;
   }
-  import('./cube-lighting.mjs?v=80fc047dc0').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=b9b4bbb209').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();
