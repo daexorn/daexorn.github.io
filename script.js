@@ -53,155 +53,53 @@ import('./assets/moments/moments.js').then(async ({ready})=>{
   document.querySelectorAll('#about .mo-w').forEach((word,index)=>word.style.setProperty('--word-order',index));
 });
 
-// A short drag exposes the next section. Crossing the detent commits one page.
+// The document owns scrolling. Every pose is derived from the same scroll position
+// whether the visitor uses touch, a wheel, a keyboard or an anchor link.
+const hero = document.querySelector('.hero');
+const scene = hero.querySelector('.hero-layout');
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-let glideFrame = 0;
-let pull = null;
-let releaseTimer = 0;
-let wheelCommitted = false;
-let finger = null;
+const entrances = [...document.querySelectorAll('[data-reveal]')];
+let sceneFrame = 0;
+let observer;
 
-function clearGesture() {
-  clearTimeout(releaseTimer);
-  cancelAnimationFrame(glideFrame);
-  glideFrame=0;
-  pull=null;
-  wheelCommitted=false;
+function paintScene() {
+  sceneFrame = 0;
+  const travel = hero.offsetHeight - scene.offsetHeight;
+  const progress = travel > 0 ? Math.max(0, Math.min(1, -hero.getBoundingClientRect().top / travel)) : 0;
+  scene.style.setProperty('--travel', progress.toFixed(4));
 }
-window.addEventListener('resize',clearGesture);
-window.addEventListener('hashchange',clearGesture);
-document.addEventListener('click',event=>{
-  if (event.target.closest('a[href^="#"]')) clearGesture();
-});
-
-function glide(target, duration, then) {
-  cancelAnimationFrame(glideFrame);
-  const from=scrollY, distance=target-from, start=performance.now();
-  function finish() {
-    window.scrollTo({top:target,behavior:'instant'});
-    glideFrame=0;
-    then?.();
-  }
-  function advance(now) {
-    const t=Math.min(1,(now-start)/duration);
-    if (t>=1) return finish();
-    const ease=1-(1-t)**3;
-    window.scrollTo({top:from+distance*ease,behavior:'instant'});
-    glideFrame=requestAnimationFrame(advance);
-  }
-  if (motionPreference.matches || Math.abs(distance)<1) finish();
-  else glideFrame=requestAnimationFrame(advance);
+function scheduleScene() {
+  if (!sceneFrame && !motionPreference.matches) sceneFrame = requestAnimationFrame(paintScene);
 }
-
-// Taller sections scroll normally until the reader arrives at their far edge.
-function bounds(top,direction) {
-  const index=Math.max(0,sections.findLastIndex(section=>section.offsetTop<=top+1));
-  const section=sections[index], start=section.offsetTop;
-  const end=Math.max(start,start+section.offsetHeight-innerHeight);
-  if (direction>0 && top<end-1) return {limit:end,reading:true};
-  if (direction<0 && top>start+1) return {limit:start,reading:true};
-  if (direction<0) return {limit:Math.max(sections[index-1]?.offsetTop ?? 0,start-innerHeight),reading:false};
-  return {limit:sections[index+1]?.offsetTop ?? end,reading:false};
-}
-
-function releasePull() {
-  const pending=pull;
-  pull=null;
-  if (pending) glide(pending.origin,170);
-}
-function pullBy(delta) {
-  if (!delta || glideFrame) return false;
-  const origin=pull?.origin ?? scrollY;
-  const amount=(pull?.amount ?? 0)+delta;
-  const direction=Math.sign(amount);
-  const {limit,reading}=bounds(origin,direction);
-  if (reading || !direction || limit===origin) {
-    pull=null;
-    const offset=reading ? direction*Math.min(Math.abs(amount),Math.abs(limit-origin)) : 0;
-    window.scrollTo({top:origin+offset,behavior:'instant'});
-    return false;
-  }
-  const threshold=Math.min(98,Math.max(62,innerHeight*.105));
-  const preview=origin+direction*Math.min(Math.abs(limit-origin)*.3,Math.min(threshold,Math.abs(amount))*.87);
-  if (Math.abs(amount)<threshold) {
-    pull={origin,amount};
-    if (!motionPreference.matches) window.scrollTo({top:preview,behavior:'instant'});
-    return false;
-  }
-  pull=null;
-  // A notched mouse can send the whole threshold in one event. Give its initial
-  // nudge a frame of its own before completing the same snap as a finger drag.
-  const finish=()=>glide(limit,260);
-  if (Math.abs(preview-scrollY)>20) glide(preview,90,finish);
-  else finish();
-  return true;
-}
-
-window.addEventListener('wheel',event=>{
-  if (!event.cancelable || event.ctrlKey || event.shiftKey || Math.abs(event.deltaX)>Math.abs(event.deltaY) || !event.deltaY) return;
-  event.preventDefault();
-  clearTimeout(releaseTimer);
-  const unit=event.deltaMode===1 ? 16 : event.deltaMode===2 ? innerHeight : 1;
-  if (!wheelCommitted) wheelCommitted=pullBy(event.deltaY*unit);
-  releaseTimer=setTimeout(()=>{
-    wheelCommitted=false;
-    releasePull();
-  },200);
-},{passive:false});
-
-window.addEventListener('touchstart',event=>{
-  if (event.touches.length!==1 || (window.visualViewport?.scale ?? 1)!==1) {
-    finger=null;
-    releasePull();
+function configureMotion() {
+  observer?.disconnect();
+  observer = null;
+  cancelAnimationFrame(sceneFrame);
+  sceneFrame = 0;
+  hero.classList.toggle('scroll-scene', !motionPreference.matches);
+  for (const item of entrances) item.classList.remove('awaiting-entry');
+  if (motionPreference.matches) {
+    scene.style.removeProperty('--travel');
     return;
   }
-  if (!event.target.closest('main > section')) return;
-  const {clientX:x,clientY:y}=event.touches[0];
-  finger={x,y,lastY:y,vertical:false,committed:false};
-},{passive:true});
-window.addEventListener('touchmove',event=>{
-  if (!finger || !event.cancelable) return;
-  const {clientX:x,clientY:y}=event.touches[0];
-  if (!finger.vertical) {
-    if (Math.abs(x-finger.x)>Math.abs(y-finger.y)) {finger=null;return;}
-    if (Math.abs(y-finger.y)<2) return;
-    finger.vertical=true;
-  }
-  event.preventDefault();
-  if (!finger.committed) finger.committed=pullBy(finger.lastY-y);
-  finger.lastY=y;
-},{passive:false});
-function endTouch() {
-  if (finger) releasePull();
-  finger=null;
-}
-window.addEventListener('touchend',endTouch,{passive:true});
-window.addEventListener('touchcancel',endTouch,{passive:true});
-
-window.addEventListener('keydown',event=>{
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input,select,textarea,[contenteditable=true]')) return;
-  const directions={ArrowDown:1,PageDown:1,ArrowUp:-1,PageUp:-1,' ':event.shiftKey ? -1 : 1};
-  const direction=directions[event.key];
-  if (!direction || event.key===' ' && event.target.closest('button,a,summary')) return;
-  event.preventDefault();
-  if (event.repeat || glideFrame) return;
-  const top=pull?.origin ?? scrollY;
-  clearGesture();
-  const {limit,reading}=bounds(top,direction);
-  glide(reading ? top+direction*Math.min(innerHeight*.8,Math.abs(limit-top)) : limit,260);
-});
-
-// Everything stays readable without script and when a visitor follows an anchor.
-if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  const arrival = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      entry.target.classList.add('section-arrives');
-      arrival.unobserve(entry.target);
+  paintScene();
+  if (!('IntersectionObserver' in window)) return;
+  observer = new IntersectionObserver(entries => {
+    for (const {target,isIntersecting,boundingClientRect} of entries) {
+      if (isIntersecting) target.classList.remove('awaiting-entry');
+      else if (boundingClientRect.top >= innerHeight * .94) target.classList.add('awaiting-entry');
     }
-  }, {threshold: 0.08});
-  document.querySelectorAll('main > section:not(.hero) > .wrap').forEach(el => arrival.observe(el));
+  }, {rootMargin:'0px 0px -6% 0px'});
+  for (const item of entrances) {
+    if (item.getBoundingClientRect().top >= innerHeight) item.classList.add('awaiting-entry');
+    observer.observe(item);
+  }
 }
+window.addEventListener('scroll',scheduleScene,{passive:true});
+window.addEventListener('resize',scheduleScene);
+new ResizeObserver(scheduleScene).observe(scene);
+motionPreference.addEventListener('change',configureMotion);
+configureMotion();
 
 const sampleToggle = document.querySelector('#sample-toggle');
 const slowReply = document.querySelector('.samples .slow');
