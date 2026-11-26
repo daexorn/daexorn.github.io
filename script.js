@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=bdcd03778f';
+import { mountCube } from './cube.mjs?v=667a54c1b2';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -53,94 +53,143 @@ import('./assets/moments/moments.js').then(async ({ready})=>{
   document.querySelectorAll('#about .mo-w').forEach((word,index)=>word.style.setProperty('--word-order',index));
 });
 
-// Native scrolling handles easing, anchor history and compositor timing.
+// A short drag exposes the next section. Crossing the detent commits one page.
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
-let destination = null;
-window.addEventListener('scrollend',()=>{destination=null;});
-window.addEventListener('hashchange',()=>{destination=null;});
-window.addEventListener('pointerdown',()=>{destination=null;},{passive:true});
-window.addEventListener('resize',()=>{destination=null;});
+let glideFrame = 0;
+let pull = null;
+let releaseTimer = 0;
+let wheelCommitted = false;
+let finger = null;
 
-// Keep tall sections readable, including at large text sizes and in landscape.
-function scrollStep(direction, distance) {
-  const top = destination ?? scrollY;
-  const current = sections.findLastIndex(section => section.offsetTop <= top + 2);
-  const section = sections[Math.max(0,current)];
-  const start = section.offsetTop;
-  const end = Math.max(start,start + section.offsetHeight - innerHeight);
-  let next;
-  if (direction > 0) {
-    next = top < end-2 ? Math.min(end,top+distance) : sections[current+1]?.offsetTop ?? document.documentElement.scrollHeight;
-  } else if (top > end+2) {
-    next = end;
-  } else if (top > start+2) {
-    next = Math.max(start,top-distance);
-  } else {
-    const previous = sections[current-1];
-    next = previous ? Math.max(previous.offsetTop,start-innerHeight) : 0;
+function clearGesture() {
+  clearTimeout(releaseTimer);
+  cancelAnimationFrame(glideFrame);
+  glideFrame=0;
+  pull=null;
+  wheelCommitted=false;
+}
+window.addEventListener('resize',clearGesture);
+window.addEventListener('hashchange',clearGesture);
+document.addEventListener('click',event=>{
+  if (event.target.closest('a[href^="#"]')) clearGesture();
+});
+
+function glide(target, duration, then) {
+  cancelAnimationFrame(glideFrame);
+  const from=scrollY, distance=target-from, start=performance.now();
+  function finish() {
+    window.scrollTo({top:target,behavior:'instant'});
+    glideFrame=0;
+    then?.();
   }
-  const reading = direction > 0 ? next > start && next < end-2 : next > start+2 && next < end;
-  next = Math.max(0,Math.min(next,document.documentElement.scrollHeight-innerHeight));
-  const animate = !reading && !motionPreference.matches;
-  destination = animate && Math.abs(next-scrollY)>1 ? next : null;
-  window.scrollTo({top:next,behavior:animate ? 'smooth' : 'instant'});
-  return reading;
+  function advance(now) {
+    const t=Math.min(1,(now-start)/duration);
+    if (t>=1) return finish();
+    const ease=1-(1-t)**3;
+    window.scrollTo({top:from+distance*ease,behavior:'instant'});
+    glideFrame=requestAnimationFrame(advance);
+  }
+  if (motionPreference.matches || Math.abs(distance)<1) finish();
+  else glideFrame=requestAnimationFrame(advance);
 }
 
-let wheelTime = -Infinity, wheelDirection = 0, stepped = false, accumulated = 0;
+// Taller sections scroll normally until the reader arrives at their far edge.
+function bounds(top,direction) {
+  const index=Math.max(0,sections.findLastIndex(section=>section.offsetTop<=top+1));
+  const section=sections[index], start=section.offsetTop;
+  const end=Math.max(start,start+section.offsetHeight-innerHeight);
+  if (direction>0 && top<end-1) return {limit:end,reading:true};
+  if (direction<0 && top>start+1) return {limit:start,reading:true};
+  if (direction<0) return {limit:Math.max(sections[index-1]?.offsetTop ?? 0,start-innerHeight),reading:false};
+  return {limit:sections[index+1]?.offsetTop ?? end,reading:false};
+}
+
+function releasePull() {
+  const pending=pull;
+  pull=null;
+  if (pending) glide(pending.origin,170);
+}
+function pullBy(delta) {
+  if (!delta || glideFrame) return false;
+  const origin=pull?.origin ?? scrollY;
+  const amount=(pull?.amount ?? 0)+delta;
+  const direction=Math.sign(amount);
+  const {limit,reading}=bounds(origin,direction);
+  if (reading || !direction || limit===origin) {
+    pull=null;
+    const offset=reading ? direction*Math.min(Math.abs(amount),Math.abs(limit-origin)) : 0;
+    window.scrollTo({top:origin+offset,behavior:'instant'});
+    return false;
+  }
+  const threshold=Math.min(98,Math.max(62,innerHeight*.105));
+  const preview=origin+direction*Math.min(Math.abs(limit-origin)*.3,Math.min(threshold,Math.abs(amount))*.87);
+  if (Math.abs(amount)<threshold) {
+    pull={origin,amount};
+    if (!motionPreference.matches) window.scrollTo({top:preview,behavior:'instant'});
+    return false;
+  }
+  pull=null;
+  // A notched mouse can send the whole threshold in one event. Give its initial
+  // nudge a frame of its own before completing the same snap as a finger drag.
+  const finish=()=>glide(limit,260);
+  if (Math.abs(preview-scrollY)>20) glide(preview,90,finish);
+  else finish();
+  return true;
+}
+
 window.addEventListener('wheel',event=>{
   if (!event.cancelable || event.ctrlKey || event.shiftKey || Math.abs(event.deltaX)>Math.abs(event.deltaY) || !event.deltaY) return;
-  const direction = Math.sign(event.deltaY);
-  const now = performance.now();
-  if (now-wheelTime>145 || direction!==wheelDirection) {
-    stepped=false;
-    accumulated=0;
-  }
-  wheelTime=now;
-  wheelDirection=direction;
   event.preventDefault();
-  if (stepped) return;
-  const unit = event.deltaMode===1 ? 16 : event.deltaMode===2 ? innerHeight : 1;
-  accumulated+=Math.abs(event.deltaY)*unit;
-  if (accumulated<8) return;
-  const reading = scrollStep(direction,accumulated);
-  accumulated=0;
-  stepped=!reading;
+  clearTimeout(releaseTimer);
+  const unit=event.deltaMode===1 ? 16 : event.deltaMode===2 ? innerHeight : 1;
+  if (!wheelCommitted) wheelCommitted=pullBy(event.deltaY*unit);
+  releaseTimer=setTimeout(()=>{
+    wheelCommitted=false;
+    releasePull();
+  },200);
 },{passive:false});
+
+window.addEventListener('touchstart',event=>{
+  if (event.touches.length!==1 || (window.visualViewport?.scale ?? 1)!==1) {
+    finger=null;
+    releasePull();
+    return;
+  }
+  if (!event.target.closest('main > section')) return;
+  const {clientX:x,clientY:y}=event.touches[0];
+  finger={x,y,lastY:y,vertical:false,committed:false};
+},{passive:true});
+window.addEventListener('touchmove',event=>{
+  if (!finger || !event.cancelable) return;
+  const {clientX:x,clientY:y}=event.touches[0];
+  if (!finger.vertical) {
+    if (Math.abs(x-finger.x)>Math.abs(y-finger.y)) {finger=null;return;}
+    if (Math.abs(y-finger.y)<2) return;
+    finger.vertical=true;
+  }
+  event.preventDefault();
+  if (!finger.committed) finger.committed=pullBy(finger.lastY-y);
+  finger.lastY=y;
+},{passive:false});
+function endTouch() {
+  if (finger) releasePull();
+  finger=null;
+}
+window.addEventListener('touchend',endTouch,{passive:true});
+window.addEventListener('touchcancel',endTouch,{passive:true});
 
 window.addEventListener('keydown',event=>{
   if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input,select,textarea,[contenteditable=true]')) return;
-  const directions = {ArrowDown:1,PageDown:1,ArrowUp:-1,PageUp:-1,' ':event.shiftKey ? -1 : 1};
-  if (!(event.key in directions) || event.key===' ' && event.target.closest('button,a,summary')) return;
+  const directions={ArrowDown:1,PageDown:1,ArrowUp:-1,PageUp:-1,' ':event.shiftKey ? -1 : 1};
+  const direction=directions[event.key];
+  if (!direction || event.key===' ' && event.target.closest('button,a,summary')) return;
   event.preventDefault();
-  if (!event.repeat) scrollStep(directions[event.key],innerHeight*.8);
+  if (event.repeat || glideFrame) return;
+  const top=pull?.origin ?? scrollY;
+  clearGesture();
+  const {limit,reading}=bounds(top,direction);
+  glide(reading ? top+direction*Math.min(innerHeight*.8,Math.abs(limit-top)) : limit,260);
 });
-
-let swipe = null;
-window.addEventListener('touchstart',event=>{
-  const point=event.touches[0];
-  swipe=event.touches.length===1 && (window.visualViewport?.scale ?? 1)===1
-    ? {x:point.clientX,y:point.clientY,section:sections.find(s=>s.contains(event.target)),claimed:false} : null;
-},{passive:true});
-window.addEventListener('touchmove',event=>{
-  if (!swipe?.section || !event.cancelable) return;
-  const dx=event.touches[0].clientX-swipe.x, dy=event.touches[0].clientY-swipe.y;
-  if (!swipe.claimed) {
-    if (Math.abs(dx)>Math.abs(dy) || Math.abs(dy)<3) return;
-    const rect=swipe.section.getBoundingClientRect();
-    if (dy<0 && rect.bottom>innerHeight+2 || dy>0 && rect.top < -2) return;
-    swipe.claimed=true;
-  }
-  event.preventDefault();
-},{passive:false});
-window.addEventListener('touchend',event=>{
-  if (swipe?.claimed) {
-    const dy=swipe.y-event.changedTouches[0].clientY;
-    if (Math.abs(dy)>32) scrollStep(Math.sign(dy),innerHeight*.8);
-  }
-  swipe=null;
-},{passive:true});
-window.addEventListener('touchcancel',()=>{swipe=null;},{passive:true});
 
 // Everything stays readable without script and when a visitor follows an anchor.
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {

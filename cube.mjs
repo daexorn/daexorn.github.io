@@ -104,8 +104,8 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
       const dx = project(add(position,u)), dy = project(add(position,v));
       const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
-        depth:position[2], body:rounded(square(.485),.012), plastic:tone('#101a28',.85+light*.42),
-        sticker:face.color && rounded(square(.476),.012),
+        depth:position[2], body:rounded(square(.485),.048), plastic:tone('#101a28',.85+light*.42),
+        sticker:face.color && rounded(square(.476),.048),
         finish:face.finish,
         textureMatrix:[dx[0]-origin[0],dx[1]-origin[1],dy[0]-origin[0],dy[1]-origin[1],...origin],
         edge:tone('#7895b7',light*.65),
@@ -125,8 +125,9 @@ export function mountCube(canvas) {
   const scene=canvas.parentElement;
   const etchings=Array.from({length:7},(_,finish)=>new Path2D(etching(finish,(x,y)=>x+' '+y)));
   let move=null, frame=0, lastTime=null, onScreen=false, sequence=0;
-  let paused=reduced.matches, drag=null, dragged=false, untilTurn=1600;
-  const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
+  let paused=reduced.matches, drag=null, dragged=false, untilTurn=850;
+  const moves=[[2,1,1],[1,1,-1],[0,0,1],[2,-1,-1],[0,1,1],[1,0,-1],
+    [2,0,1],[0,-1,-1],[1,-1,1],[2,1,-1],[1,1,1],[0,1,-1]];
   let studio = null;
   let ready = false;
   let dragTarget = null;
@@ -180,7 +181,7 @@ export function mountCube(canvas) {
     } else {
       move={axis,layer,direction,elapsed:0,angle:0};
     }
-    untilTurn=3500;
+    untilTurn=2050;
   }
 
   function schedule() {
@@ -198,13 +199,13 @@ export function mountCube(canvas) {
       viewpoint.pitch+=(dragTarget.pitch-viewpoint.pitch)*blend;
       if (Math.abs(dragTarget.yaw-viewpoint.yaw)+Math.abs(dragTarget.pitch-viewpoint.pitch)<.001) dragTarget=null;
     } else if (!paused && !drag) {
-      viewpoint.yaw+=dt*.00034;
+      viewpoint.yaw+=dt*.00047;
       untilTurn-=dt;
       if (untilTurn<=0) startTurn();
     }
     if (move && (manualTurn || (!paused && !drag))) {
       move.elapsed+=dt;
-      const t=Math.min(1,move.elapsed/1150);
+      const t=Math.min(1,move.elapsed/1000);
       const eased=t*t*t*(t*(6*t-15)+10);
       move.angle=move.direction*HALF_PI*eased;
       if (t===1) {
@@ -267,7 +268,7 @@ export function mountCube(canvas) {
     startRenderer();
     return;
   }
-  import('./cube-lighting.mjs?v=606eac78fb').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=2844a3fbe9').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();
