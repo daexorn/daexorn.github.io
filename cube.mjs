@@ -93,7 +93,7 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
     const center = view(piece.center);
     for (const face of piece.faces) {
       const n=view(face.normal);
-      const position=add(center,scale(n,.492));
+      const position=add(center,scale(n,.485));
       if (dot(n,[-position[0],-position[1],11.5-position[2]]) <= 0) continue;
       const across = face.tangent;
       const u=view(across), v=view(cross(face.normal,across));
@@ -104,8 +104,8 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
       const dx = project(add(position,u)), dy = project(add(position,v));
       const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
-        depth:position[2], body:rounded(square(.498),.105), plastic:tone('#101a28',.85+light*.42),
-        sticker:face.color && rounded(square(.443),.17),
+        depth:position[2], body:rounded(square(.485),.085), plastic:tone('#101a28',.85+light*.42),
+        sticker:face.color && rounded(square(.476),.085),
         finish:face.finish,
         textureMatrix:[dx[0]-origin[0],dx[1]-origin[1],dy[0]-origin[0],dy[1]-origin[1],...origin],
         edge:tone('#7895b7',light*.65),
@@ -266,7 +266,7 @@ export function mountCube(canvas) {
   const surface = document.createElement('canvas');
   surface.setAttribute('aria-hidden','true');
   if (!surface.getContext('webgl2',{alpha:true,antialias:true,powerPreference:'low-power'})) return;
-  import('./cube-lighting.mjs?v=d73bcf4f26').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=1efaa8f060').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();

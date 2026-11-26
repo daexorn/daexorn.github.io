@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=507c9028b3';
+import { mountCube } from './cube.mjs?v=9bf653d4c7';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -34,25 +34,101 @@ if (CSS.supports('backdrop-filter','url(#nav-lens)') && /Chrome|Chromium|Edg\//.
   new ResizeObserver(paintLens).observe(dock);
 }
 
-const navLinks=[...dock.querySelectorAll('nav a')];
-const sections=navLinks.map(link=>document.querySelector(link.hash));
-const updateNav=()=>{
-  const current=sections.find(section=>{
-    const rect=section.getBoundingClientRect();
-    return rect.top<innerHeight*.5 && rect.bottom>innerHeight*.5;
-  });
-  for (const link of navLinks) {
-    if (current && link.hash==='#'+current.id) link.setAttribute('aria-current','location');
+const sections = [...document.querySelectorAll('main > section')];
+const indexLinks = [...document.querySelectorAll('.section-index a, .site-header nav a')];
+function updateNav() {
+  const current = sections.findLast(section => section.getBoundingClientRect().top <= innerHeight / 2) || sections[0];
+  for (const section of sections) section.classList.toggle('is-current',section===current);
+  for (const link of indexLinks) {
+    link.toggleAttribute('data-past',sections.indexOf(document.getElementById(link.hash.slice(1)))<sections.indexOf(current));
+    if (link.hash === '#' + current.id) link.setAttribute('aria-current','location');
     else link.removeAttribute('aria-current');
   }
-};
-let navFrame=0;
-function queueNavUpdate(){
-  if (!navFrame) navFrame=requestAnimationFrame(()=>{navFrame=0;updateNav();});
 }
-window.addEventListener('scroll',queueNavUpdate,{passive:true});
-window.addEventListener('resize',queueNavUpdate);
+window.addEventListener('scroll',updateNav,{passive:true});
+window.addEventListener('resize',updateNav);
 updateNav();
+import('./assets/moments/moments.js').then(async ({ready})=>{
+  await ready;
+  document.querySelectorAll('#about .mo-w').forEach((word,index)=>word.style.setProperty('--word-order',index));
+});
+
+// Keep tall sections readable, including at large text sizes and in landscape.
+function scrollStep(direction, distance) {
+  const top = scrollY;
+  const current = sections.findLastIndex(section => section.offsetTop <= top + 2);
+  const section = sections[Math.max(0,current)];
+  const start = section.offsetTop;
+  const end = Math.max(start,start + section.offsetHeight - innerHeight);
+  let next;
+  if (direction > 0) {
+    next = top < end-2 ? Math.min(end,top+distance) : sections[current+1]?.offsetTop ?? document.documentElement.scrollHeight;
+  } else if (top > end+2) {
+    next = end;
+  } else if (top > start+2) {
+    next = Math.max(start,top-distance);
+  } else {
+    const previous = sections[current-1];
+    next = previous ? Math.max(previous.offsetTop,start-innerHeight) : 0;
+  }
+  window.scrollTo({top:next,behavior:'instant'});
+  return direction > 0 ? next > start && next < end-2 : next > start+2 && next < end;
+}
+
+let wheelTime = -Infinity, wheelDirection = 0, stepped = false, accumulated = 0;
+window.addEventListener('wheel',event=>{
+  if (!event.cancelable || event.ctrlKey || event.shiftKey || Math.abs(event.deltaX)>Math.abs(event.deltaY) || !event.deltaY) return;
+  const direction = Math.sign(event.deltaY);
+  const now = performance.now();
+  if (now-wheelTime>145 || direction!==wheelDirection) {
+    stepped=false;
+    accumulated=0;
+  }
+  wheelTime=now;
+  wheelDirection=direction;
+  event.preventDefault();
+  if (stepped) return;
+  const unit = event.deltaMode===1 ? 16 : event.deltaMode===2 ? innerHeight : 1;
+  accumulated+=Math.abs(event.deltaY)*unit;
+  if (accumulated<8) return;
+  const reading = scrollStep(direction,accumulated);
+  accumulated=0;
+  stepped=!reading;
+},{passive:false});
+
+window.addEventListener('keydown',event=>{
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input,select,textarea,[contenteditable=true]')) return;
+  const directions = {ArrowDown:1,PageDown:1,ArrowUp:-1,PageUp:-1,' ':event.shiftKey ? -1 : 1};
+  if (!(event.key in directions) || event.key===' ' && event.target.closest('button,a,summary')) return;
+  event.preventDefault();
+  if (!event.repeat) scrollStep(directions[event.key],innerHeight*.8);
+});
+
+let swipe = null;
+window.addEventListener('touchstart',event=>{
+  const point=event.touches[0];
+  swipe=event.touches.length===1 && (window.visualViewport?.scale ?? 1)===1
+    ? {x:point.clientX,y:point.clientY,section:sections.find(s=>s.contains(event.target)),claimed:false} : null;
+},{passive:true});
+window.addEventListener('touchmove',event=>{
+  if (!swipe?.section || !event.cancelable) return;
+  const dx=event.touches[0].clientX-swipe.x, dy=event.touches[0].clientY-swipe.y;
+  if (!swipe.claimed) {
+    if (Math.abs(dx)>Math.abs(dy) || Math.abs(dy)<3) return;
+    const rect=swipe.section.getBoundingClientRect();
+    if (dy<0 && rect.bottom>innerHeight+2 || dy>0 && rect.top < -2) return;
+    swipe.claimed=true;
+  }
+  event.preventDefault();
+},{passive:false});
+window.addEventListener('touchend',event=>{
+  if (swipe?.claimed) {
+    const dy=swipe.y-event.changedTouches[0].clientY;
+    if (Math.abs(dy)>32) scrollStep(Math.sign(dy),innerHeight*.8);
+  }
+  swipe=null;
+},{passive:true});
+window.addEventListener('touchcancel',()=>{swipe=null;},{passive:true});
 
 // Everything stays readable without script and when a visitor follows an anchor.
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {

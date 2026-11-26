@@ -70,16 +70,21 @@ export function createStudioCube(canvas, pieces) {
   const fill = new THREE.DirectionalLight(0xa4c6ed, 2.6);
   fill.position.set(3, 1, 6);
   stage.add(fill);
-  const bodyShape = new RoundedBoxGeometry(.976,.976,.976,2,.075);
-  const tileShape = new RoundedBoxGeometry(.866,.866,.094,2,.046);
-  const bodyMaterial = new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
+  // A single face includes its share of the bevel. Six instances meet to form
+  // one solid cubelet, just as the six materials did on the original geometry.
+  const faceShape = new RoundedBoxGeometry(.97,.97,.97,3,.085);
+  const front = faceShape.groups[4];
+  faceShape.setDrawRange(front.start,front.count);
+  const innerMaterial = new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
   const tones = [0x203149,0x233448,0x24394f,0x354b60,0x203248,0x2a3a50,0x263748];
-  const roughness = [.14,.76,.37,.50,.23,.62,.87];
+  const roughness = [.12,.38,.82,.7,.18,.46,.88];
+  const metals = [.72,.46,.10,.18,.66,.38,.06];
+  const coats = [1,.38,0,.04,.88,.24,0];
   const tiles = tones.map((color, i) => {
     const map = i ? grain(i) : null;
-    return new THREE.MeshPhysicalMaterial({color, metalness:i === 0 ? .68 : .32,
-      roughness:roughness[i], clearcoat:i === 0 || i === 4 ? .9 : .08,
-      clearcoatRoughness:.12, map, bumpMap:map, bumpScale:.008});
+    return new THREE.MeshPhysicalMaterial({color, metalness:metals[i],
+      roughness:roughness[i], clearcoat:coats[i],
+      clearcoatRoughness:roughness[i], map, bumpMap:map, bumpScale:.025});
   });
   function batch(geometry, material, count) {
     const mesh = new THREE.InstancedMesh(geometry, material, count);
@@ -88,12 +93,11 @@ export function createStudioCube(canvas, pieces) {
     rig.add(mesh);
     return mesh;
   }
-  const bodies = batch(bodyShape, bodyMaterial, pieces.length);
-  const stickers = tiles.map((material, finish) => {
+  const surfaces = [...tiles,innerMaterial].map((material, finish) => {
     const faces = pieces.flatMap(piece => piece.faces
-      .filter(face => face.color && face.finish === finish)
+      .filter(face => (face.color ? face.finish : tiles.length) === finish)
       .map(face => ({piece,face})));
-    return {mesh:batch(tileShape,material,faces.length), faces};
+    return {mesh:batch(faceShape,material,faces.length),faces};
   });
   const basis = new THREE.Matrix4(), u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
   const turnMatrix = new THREE.Matrix4(), pieceMatrix = new THREE.Matrix4();
@@ -105,18 +109,13 @@ export function createStudioCube(canvas, pieces) {
   }
   function syncLayer(move) {
     if (move) turnMatrix.makeRotationAxis(axes[move.axis],move.angle);
-    pieces.forEach((piece,i)=>{
-      placePiece(piece,move);
-      bodies.setMatrixAt(i,pieceMatrix);
-    });
-    bodies.instanceMatrix.needsUpdate = true;
-    for (const {mesh,faces} of stickers) {
+    for (const {mesh,faces} of surfaces) {
       faces.forEach(({piece,face},i)=>{
         placePiece(piece,move);
         u.fromArray(face.tangent);
         n.fromArray(face.normal);
         v.crossVectors(n,u);
-        basis.makeBasis(u,v,n).setPosition(n.multiplyScalar(.475)).premultiply(pieceMatrix);
+        basis.makeBasis(u,v,n).premultiply(pieceMatrix);
         mesh.setMatrixAt(i,basis);
       });
       mesh.instanceMatrix.needsUpdate = true;
@@ -132,10 +131,9 @@ export function createStudioCube(canvas, pieces) {
       renderer.render(stage,camera);
     },
     dispose() {
-      bodies.dispose();
-      stickers.forEach(({mesh}) => mesh.dispose());
+      surfaces.forEach(({mesh}) => mesh.dispose());
       reflection.dispose();
-      bodyShape.dispose(); tileShape.dispose(); bodyMaterial.dispose();
+      faceShape.dispose(); innerMaterial.dispose();
       tiles.forEach(material => {material.map?.dispose(); material.dispose();});
       renderer.dispose();
     }

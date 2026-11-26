@@ -15,13 +15,13 @@
   <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/host-grotesk.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/motion/motion.css">
-  <link rel="stylesheet" href="style.css?v=9b1e379817">
+  <link rel="stylesheet" href="style.css?v=db43e7f713">
   <script>document.documentElement.classList.add('m-enter');setTimeout(() => document.documentElement.classList.add('m-enter-done'), 700)</script>
   <script type="module" src="assets/motion/motion.js"></script>
-  <script type="module" src="script.js?v=fd70297efe"></script>
+  <script type="module" src="script.js?v=c82b797995"></script>
   <script type="module" src="assets/moments/moments.js"></script>
 </head>
-<body id="top">
+<body>
   <a class="skip" href="#main">Skip to content</a>
   <svg class="lens-def" width="0" height="0" aria-hidden="true">
     <defs><filter id="nav-lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -36,8 +36,14 @@
       <a class="git-link" href="https://github.com/daexorn" aria-label="daexorn on GitHub"><img src="assets/brands/github.svg" alt="" width="20" height="20"><span>GitHub</span></a>
     </div>
   </header>
+  <nav class="section-index" aria-label="Portfolio sections">
+    <a href="#top" aria-current="location"><strong>Overview</strong><small>Ilya’s portfolio</small></a>
+    <a href="#about"><strong>About</strong><small>Background and contacts</small></a>
+    <a href="#notebook"><strong>Notebook</strong><small>A reply-time experiment</small></a>
+    <a href="#cube-study"><strong>Cube study</strong><small>Follow a quarter turn</small></a>
+  </nav>
   <main id="main">
-    <section class="hero" data-enter aria-labelledby="headline">
+    <section id="top" class="hero" data-enter aria-labelledby="headline">
       <div class="wrap hero-layout">
         <div class="hero-text">
           <p class="eyebrow">Data science · Telegram bots</p>
