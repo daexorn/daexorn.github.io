@@ -193,16 +193,17 @@ export function mountCube(canvas) {
     } else {
       move={axis,layer,direction,elapsed:0,angle:0};
     }
-    untilTurn=920;
+    untilTurn=1320;
   }
 
   // Group four layer moves between eased revolutions of the entire cube.
+  const spinStart=5500, spinDuration=5200, turnDuration=600;
+  const orbitPeriod=spinStart+spinDuration+300;
   let orbitTime=0;
   function orbitAngle(ms) {
-    const period=5700;
-    const progress=Math.max(0,Math.min(1,(ms%period-3650)/1950));
+    const progress=Math.max(0,Math.min(1,(ms%orbitPeriod-spinStart)/spinDuration));
     const eased=progress<.5 ? 4*progress**3 : 1-4*(1-progress)**3;
-    return -2*Math.PI*(Math.floor(ms/period)+eased);
+    return -2*Math.PI*(Math.floor(ms/orbitPeriod)+eased);
   }
   function schedule() {
     const moving = !paused && !drag || move && manualTurn || dragTarget;
@@ -228,12 +229,12 @@ export function mountCube(canvas) {
       viewpoint.lift=.06*wave;
       viewpoint.tilt=.005*wave;
       untilTurn-=dt;
-      if (untilTurn<=0 && orbitTime%5700<3500) startTurn();
+      if (untilTurn<=0 && orbitTime%orbitPeriod<=spinStart-turnDuration) startTurn();
     }
     if (move && (manualTurn || (!paused && !drag))) {
       move.elapsed+=dt;
-      const t=Math.min(1,move.elapsed/200);
-      const eased=Math.sin(t*HALF_PI);
+      const t=Math.min(1,move.elapsed/turnDuration);
+      const eased=(1-Math.cos(t*Math.PI))/2;
       move.angle=move.direction*HALF_PI*eased;
       if (t===1) {
         turn(pieces,move.axis,move.layer,move.direction);
