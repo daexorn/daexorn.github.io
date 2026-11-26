@@ -53,3 +53,15 @@ function queueNavUpdate(){
 window.addEventListener('scroll',queueNavUpdate,{passive:true});
 window.addEventListener('resize',queueNavUpdate);
 updateNav();
+
+// Everything stays readable without script and when a visitor follows an anchor.
+if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const arrival = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.add('section-arrives');
+      arrival.unobserve(entry.target);
+    }
+  }, {threshold: 0.08});
+  document.querySelectorAll('main > section:not(.hero) > .wrap').forEach(el => arrival.observe(el));
+}

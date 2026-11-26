@@ -16,7 +16,6 @@ a{color:inherit;text-decoration:none}
 .site-header{height:var(--nav);position:sticky;top:0;z-index:5;background:var(--bg)}
 html{scroll-padding-top:calc(var(--nav) + 8px)}
 html:has(:focus-visible){scroll-behavior:auto}
-.project a:focus-visible{outline:3px solid #23d782;outline-offset:3px}
 .nav-inner,.nav nav,.wordmark,footer .wrap,.socials,.socials a,.next-section,.eyebrow,.contact{display:flex;align-items:center}
 .nav-inner{height:100%;justify-content:space-between;border-bottom:1px solid var(--rule)}
 .wordmark{font-size:1.5rem;font-weight:650;letter-spacing:-.06em;gap:.48em;min-height:44px}
@@ -27,10 +26,10 @@ html:has(:focus-visible){scroll-behavior:auto}
 .nav nav a::after,footer a::after,.socials a::after{content:"";position:absolute;bottom:6px;left:0;right:0;height:1px;background:currentColor;transform:scaleX(0);transform-origin:left;transition:transform .27s var(--ease)}
 .nav nav a:hover::after,footer a:hover::after,.socials a:hover::after{transform:scaleX(1)}
 .hero-layout{position:relative;min-height:calc(100svh - var(--nav));display:grid;grid-template-columns:1.15fr 1fr;align-items:center;gap:2%;padding-block:clamp(36px,7vh,80px) clamp(80px,11vh,130px)}
-.eyebrow,.next-section,.status,.about h2{font:400 .78rem/1.4 var(--mono)}
+.eyebrow,.next-section,.about h2{font:400 .78rem/1.4 var(--mono)}
 .eyebrow{color:var(--quiet);gap:11px}
 .signal{height:8px;width:8px;background:var(--accent)}
-h1,.projects h2,.about p{font-weight:500;letter-spacing:var(--display-tracking)}
+h1,.about p{font-weight:500;letter-spacing:var(--display-tracking)}
 h1{font-size:clamp(3.3rem,6.7vw,7.8rem);line-height:1.01;margin:clamp(20px,3vh,36px) 0 22px}
 h1 > span{display:block}
 .secondary-line{color:#aab6cb}
@@ -38,7 +37,7 @@ h1 > span{display:block}
 .contact{gap:11px;width:fit-content;margin-top:32px;background:#0c1929;color:var(--ink);border:1px solid #34455c;padding:0 18px;min-height:51px;border-radius:6px;font-weight:600;transition:transform .24s var(--ease),background .24s}
 .contact span{margin-left:12px;transition:transform .24s var(--ease)}
 .contact:hover{transform:translateY(-2px);background:#152a40}
-.contact:hover span,.socials a:hover span,.project a:hover .arrow{transform:translate(2px,-2px)}
+.contact:hover span,.socials a:hover span{transform:translate(2px,-2px)}
 .contact:focus-visible{outline-color:#23d782}
 .contact:active{transform:translateY(1px)}
 .stage{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;max-height:68svh}
@@ -51,18 +50,6 @@ h1 > span{display:block}
 .next-section{position:absolute;bottom:24px;left:0;gap:18px;min-height:44px;color:var(--quiet)}
 .next-section span{transition:transform .3s var(--ease)}.next-section:hover span{transform:translateY(4px)}
 .section{min-height:calc(100svh - var(--nav));display:grid;align-items:center;padding-block:clamp(56px,10vh,140px)}
-.projects{background:var(--paper);color:#dce3ef}
-.projects h2{font-size:clamp(3.3rem,8.4vw,9rem);line-height:1;margin-bottom:clamp(36px,8vh,90px);width:fit-content}
-.projects h2 span{color:#23d782}
-.project{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 17ch;gap:4%;align-items:center;border-top:1px solid #26344a;padding:clamp(22px,4.1vh,49px) 0}
-.project:last-child{border-bottom:1px solid #26344a}
-.project h3{font-size:clamp(1.65rem,3.7vw,4.2rem);line-height:1.07;font-weight:500;letter-spacing:-.05em}
-.project h3 a{min-height:44px;display:inline-flex;align-items:center;gap:.3em}
-.arrow{font-size:.55em;transition:transform .25s var(--ease)}
-.project p{max-width:35ch;font-size:clamp(1rem,1.25vw,1.24rem);line-height:1.5;color:#aab6cb}
-.status{justify-self:end;display:flex;align-items:center;gap:8px;color:#aab6cb}
-.status::before{content:"";width:7px;height:7px;border:1px solid currentColor;border-radius:50%}
-.available::before{background:var(--accent);border-color:var(--accent)}
 .about{--bg:#01040b;--ink:#dce3ef;--accent:#23d782;background:var(--bg);color:var(--ink)}
 .about h2{font-size:.95rem;margin-bottom:clamp(28px,5vh,65px)}
 .about .mo-wh__text{max-width:20ch;line-height:1.08}
@@ -84,13 +71,9 @@ footer .wrap{min-height:84px;justify-content:space-between}
  .contact{margin-top:18px;min-height:46px}
  .stage{max-height:none;width:min(100%,35svh);justify-self:center}
  .cube{width:100%}.next-section{bottom:4px}
- .projects h2{margin-bottom:36px}
- .project{grid-template-columns:minmax(0,1fr) auto;gap:9px 8px;padding:22px 0}
- .project p{grid-column:1/-1;grid-row:2}
- .project h3{font-size:clamp(1.6rem,7.7vw,2.55rem)}.status{font-size:.67rem}
  .about h2{margin-bottom:26px}
 }
-@media(min-width:721px) and (max-width:920px){h1{font-size:5.9vw}.project{grid-template-columns:1fr 1fr 13ch}}
+@media(min-width:721px) and (max-width:920px){h1{font-size:5.9vw}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}.about .mo-wh__text .mo-w{color:var(--ink)}}
 
 @media(max-width:359px){h1{font-size:2.45rem}.stage{width:min(100%,32svh)}.hero-layout{gap:8px;padding-top:22px}}
@@ -118,23 +101,21 @@ footer .wrap{min-height:84px;justify-content:space-between}
 .nav nav a::after{display:none}.nav nav a:hover,.nav nav a[aria-current]{background:#d5e7ff12}
 .git-link{justify-self:end;display:flex;align-items:center;gap:8px;padding:0 13px;min-height:36px;border-radius:9px;background:#dce3ef;color:#07101b;font-weight:600;font-size:.86rem;transition:transform .2s}
 .git-link img{filter:brightness(.08)}.git-link:hover{transform:translateY(-1px)}
-.hero-layout{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
-  gap:clamp(6px,1.5vh,24px);padding:clamp(92px,12vh,140px) 0 42px}
-.hero-text{display:flex;flex-direction:column;align-items:center;max-width:980px}
-.eyebrow{border:1px solid #9bb6d433;background:#101c2b;color:#c0ccdb;padding:5px 12px;border-radius:99px}
+.hero{background:radial-gradient(ellipse 85% 72% at 79% 83%,#162e47 0%,#0b192b 38%,#030a15 67%,#000207 100%)}
+.hero-layout{min-height:100svh;padding-block:calc(var(--nav) + 36px) 70px}
+.hero-text{min-width:0}
+.eyebrow{width:fit-content;border:1px solid #9bb6d433;background:#101c2b;color:#c0ccdb;padding:5px 12px;border-radius:99px}
 .signal{border-radius:50%;width:6px;height:6px}
-h1{font-size:clamp(3rem,min(6.6vw,8.2vh),7.1rem);line-height:1.01;margin:clamp(12px,2.3vh,28px) 0 14px}
-h1 > span{display:inline}.secondary-line{color:#b8c9dd}
-.intro{max-width:49ch;line-height:1.45;font-size:clamp(1rem,1.4vw,1.22rem)}
+
+.secondary-line{color:#b8c9dd}
+.intro{max-width:36ch;line-height:1.45;font-size:clamp(1rem,1.4vw,1.22rem)}
 .contact{margin-top:clamp(14px,2.4vh,25px);min-height:46px;
   background:#17283c;border-color:#9bb6d451;box-shadow:inset 0 1px 1px #cfdeed24,0 3px 12px #0004;border-radius:12px}
 .stage{width:100%;max-height:none;aspect-ratio:auto;display:flex;flex-direction:column;align-items:center}
-.cube{width:min(100%,clamp(230px,44svh,550px));flex:none}
+.cube{width:min(100%,58svh);flex:none}
 .cube-help{color:#9cacc0;font:400 .69rem/1.5 var(--mono);margin:0}
 .next-section{bottom:14px}
-.project-list{padding:0 clamp(16px,3vw,42px);border:1px solid #25364c;border-radius:20px;background:#09121f;box-shadow:inset 0 1px 0 #c5d9ef0f}
-.project:first-child{border-top:0}.project:last-child{border-bottom:0}
-.work-layout,.about-layout{max-width:1140px}
+.about-layout{max-width:1140px}
 @media(max-width:720px){
   .hero-layout{padding:90px 0 48px;gap:14px}
   h1{font-size:clamp(2.6rem,9.3vw,4.2rem)}h1 > span{display:block}
@@ -147,3 +128,12 @@ h1 > span{display:inline}.secondary-line{color:#b8c9dd}
 }
 @media(max-width:450px){.git-link span{display:none}.git-link{min-width:44px;justify-content:center}}
 @media(prefers-reduced-transparency:reduce){.site-header::before{background:#101b2b!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+
+.cube-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 13px}
+.spin-toggle{font:400 .7rem/1.4 var(--mono);min-height:44px;cursor:pointer;color:var(--ink);background:transparent;border:0;padding:3px;text-decoration:underline;text-underline-offset:4px}
+@media(max-width:720px){.hero{background:radial-gradient(ellipse 100% 62% at 72% 74%,#132a40,#081424 51%,#000207 100%)}}
+@media(prefers-reduced-motion:no-preference){
+  .section-arrives{animation:section-arrival .72s var(--ease) both}
+  @keyframes section-arrival{from{opacity:.3;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+}
+@media(prefers-reduced-motion:reduce){.spin-toggle{display:none}}

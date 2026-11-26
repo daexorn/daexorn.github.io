@@ -100,12 +100,14 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
       const square = size => [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b]) =>
         project(add(position,add(scale(u,a*size),scale(v,b*size)))));
       const light=Math.max(.12,.42+.46*n[1]+.26*n[2]-.18*n[0]);
-      const point = (a,b) => project(add(position,add(scale(u,a),scale(v,b)))).map(x=>x.toFixed(2)).join(' ');
+      const origin = project(position);
+      const dx = project(add(position,u)), dy = project(add(position,v));
       const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
         depth:position[2], body:rounded(square(.498),.105), plastic:tone('#101a28',.85+light*.42),
         sticker:face.color && rounded(square(.443),.17),
-        texture:face.color && etching(face.finish,point),
+        finish:face.finish,
+        textureMatrix:[dx[0]-origin[0],dx[1]-origin[1],dy[0]-origin[0],dy[1]-origin[1],...origin],
         edge:tone('#7895b7',light*.65),
         light:face.color && tone(face.color,1.65,light*34*specular),
         dark:face.color && tone(face.color,1.3,light*7)
@@ -120,7 +122,11 @@ export function mountCube(canvas) {
   if (!ctx) return;
   const pieces=makeCube(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const viewpoint={...homeView};
-  let move=null, frame=0, timer=0, onScreen=false, sequence=0;
+  const scene=canvas.parentElement;
+  const toggle=scene.parentElement.querySelector('.spin-toggle');
+  const etchings=Array.from({length:7},(_,finish)=>new Path2D(etching(finish,(x,y)=>x+' '+y)));
+  let move=null, frame=0, lastTime=null, onScreen=false, sequence=0;
+  let paused=false, drag=null, dragged=false, untilTurn=1600;
   const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
   function draw() {
     const size=Math.max(1,Math.round(canvas.clientWidth*Math.min(devicePixelRatio||1,2)));
@@ -136,43 +142,70 @@ export function mountCube(canvas) {
       const glaze=ctx.createLinearGradient(60,70,410,435);
       glaze.addColorStop(0,f.light);glaze.addColorStop(1,f.dark);
       ctx.fillStyle=glaze;ctx.fill(tile);
-      if (f.texture) {
+      if (f.finish!==0) {
         ctx.save();ctx.clip(tile);
-        ctx.strokeStyle='rgba(130,155,188,.22)';ctx.lineWidth=.8;
-        ctx.stroke(new Path2D(f.texture));ctx.restore();
+        ctx.transform(...f.textureMatrix);
+        ctx.strokeStyle='rgba(130,155,188,.22)';ctx.lineWidth=.009;
+        ctx.stroke(etchings[f.finish]);ctx.restore();
       }
       ctx.strokeStyle=f.edge;ctx.lineWidth=1.15;ctx.stroke(tile);
     }
     canvas.parentElement.classList.add('is-drawn');
   }
-  function stop() {
-    cancelAnimationFrame(frame);clearTimeout(timer);
-    if (move) { move=null;draw(); }
-  }
-  function play(manual=false) {
-    if (move || !onScreen || document.hidden || (reduced.matches && !manual)) return;
-    clearTimeout(timer);
+  function startTurn() {
+    if (move) return;
     const [axis,layer,direction]=moves[sequence++%moves.length];
-    if (reduced.matches) { turn(pieces,axis,layer,direction);draw();return; }
-    const start=performance.now();
-    move={axis,layer,angle:0};
-    function tick(now) {
-      const t=Math.min(1,(now-start)/760);
-      move.angle=direction*HALF_PI*t*t*(3-2*t);
-      if (t===1) { turn(pieces,axis,layer,direction);move=null; }
+    if (reduced.matches) {
+      turn(pieces,axis,layer,direction);
       draw();
-      if (move) frame=requestAnimationFrame(tick);
+    } else {
+      move={axis,layer,direction,elapsed:0,angle:0};
     }
-    frame=requestAnimationFrame(tick);
+    untilTurn=4800;
   }
-  const scene=canvas.parentElement;
+
+  function schedule() {
+    if (!frame && onScreen && !document.hidden && (move || (!paused && !reduced.matches && !drag))) {
+      frame=requestAnimationFrame(tick);
+    }
+  }
+  function tick(now) {
+    frame=0;
+    if (!onScreen || document.hidden) return;
+    const delta=lastTime===null ? 0 : now-lastTime;
+    if (lastTime===null || delta>=30) {
+      const dt=Math.min(delta,80);
+      lastTime=now;
+      if (!paused && !reduced.matches && !drag) {
+        viewpoint.yaw+=dt*.00019;
+        untilTurn-=dt;
+        if (untilTurn<=0) startTurn();
+      }
+      if (move) {
+        move.elapsed+=dt;
+        const t=Math.min(1,move.elapsed/780);
+        move.angle=move.direction*HALF_PI*t*t*(3-2*t);
+        if (t===1) { turn(pieces,move.axis,move.layer,move.direction);move=null; }
+      }
+      draw();
+    }
+    schedule();
+  }
+  function refresh() {
+    cancelAnimationFrame(frame);frame=0;lastTime=null;
+    if (reduced.matches && move) { turn(pieces,move.axis,move.layer,move.direction);move=null;draw(); }
+    schedule();
+  }
+
+  toggle.hidden=false;
+  toggle.addEventListener('click',()=>{
+    paused=!paused;
+    if (paused && move) { turn(pieces,move.axis,move.layer,move.direction);move=null;draw(); }
+    toggle.textContent=paused ? 'Resume rotation' : 'Pause rotation';
+    refresh();
+  });
   new ResizeObserver(draw).observe(scene);
-  new IntersectionObserver(entries=>{
-    onScreen=entries[0].isIntersecting;
-    if (!onScreen) stop();
-    else if (sequence===0 && !reduced.matches) timer=setTimeout(play,600);
-  }).observe(scene);
-  let drag=null, dragged=false, paintFrame=0;
+  new IntersectionObserver(([entry])=>{onScreen=entry.isIntersecting;refresh();}).observe(scene);
   scene.addEventListener('pointerdown',event=>{
     if (!event.isPrimary || event.button!==0) return;
     dragged=false;
@@ -186,14 +219,14 @@ export function mountCube(canvas) {
     dragged=true;
     viewpoint.yaw=drag.yaw+dx*.009;
     viewpoint.pitch=Math.max(-1.45,Math.min(1.45,drag.pitch+dy*.009));
-    if (!paintFrame) paintFrame=requestAnimationFrame(()=>{paintFrame=0;draw();});
+    draw();
   });
-  scene.addEventListener('lostpointercapture',()=>{drag=null;});
+  scene.addEventListener('lostpointercapture',()=>{drag=null;refresh();});
   scene.addEventListener('click',event=>{
-    if (!dragged || event.detail===0) play(true);
+    if (!dragged || event.detail===0) { startTurn();schedule(); }
     dragged=false;
   });
-  reduced.addEventListener('change',stop);
-  document.addEventListener('visibilitychange',()=>{if(document.hidden) stop();});
+  reduced.addEventListener('change',refresh);
+  document.addEventListener('visibilitychange',refresh);
   draw();
 }
