@@ -14,7 +14,9 @@ a{color:inherit;text-decoration:none}
 .skip:focus{transform:none;outline:3px solid #f6ca67;outline-offset:2px}
 .wrap{width:min(1440px,calc(100% - clamp(40px,9vw,160px)));margin-inline:auto}
 .site-header{height:var(--nav);position:sticky;top:0;z-index:5;background:var(--bg)}
-section[id]{scroll-margin-top:var(--nav)}
+html{scroll-padding-top:calc(var(--nav) + 8px)}
+html:has(:focus-visible){scroll-behavior:auto}
+.project a:focus-visible{outline:3px solid #24496a;outline-offset:3px}
 .nav-inner,.nav nav,.wordmark,footer .wrap,.socials,.socials a,.next-section,.eyebrow,.contact{display:flex;align-items:center}
 .nav-inner{height:100%;justify-content:space-between;border-bottom:1px solid var(--rule)}
 .wordmark{font-size:1.5rem;font-weight:650;letter-spacing:-.06em;gap:.48em;min-height:44px}
