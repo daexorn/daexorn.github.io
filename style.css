@@ -15,8 +15,8 @@ a{color:inherit;text-decoration:none}
 .wrap{width:min(1440px,calc(100% - clamp(40px,9vw,160px)));margin-inline:auto}
 .site-header{height:var(--nav);position:sticky;top:0;z-index:5;background:var(--bg)}
 section[id]{scroll-margin-top:var(--nav)}
-.nav,.nav nav,.wordmark,footer .wrap,.socials,.socials a,.next-section,.eyebrow,.contact{display:flex;align-items:center}
-.nav{height:100%;justify-content:space-between;border-bottom:1px solid var(--rule)}
+.nav-inner,.nav nav,.wordmark,footer .wrap,.socials,.socials a,.next-section,.eyebrow,.contact{display:flex;align-items:center}
+.nav-inner{height:100%;justify-content:space-between;border-bottom:1px solid var(--rule)}
 .wordmark{font-size:1.5rem;font-weight:650;letter-spacing:-.06em;gap:.48em;min-height:44px}
 .wordmark img{transition:transform .45s var(--ease)}
 .wordmark:hover img{transform:rotate(90deg)}
@@ -51,7 +51,7 @@ h1 > span{display:block}
 .cube.is-drawn canvas{visibility:visible}
 .next-section{position:absolute;bottom:24px;left:0;gap:18px;min-height:44px;color:var(--quiet)}
 .next-section span{transition:transform .3s var(--ease)}.next-section:hover span{transform:translateY(4px)}
-.section{min-height:100svh;display:grid;align-items:center;padding-block:clamp(56px,10vh,140px)}
+.section{min-height:calc(100svh - var(--nav));display:grid;align-items:center;padding-block:clamp(56px,10vh,140px)}
 .projects{background:var(--paper);color:#252b30}
 .projects h2{font-size:clamp(3.3rem,8.4vw,9rem);line-height:1;margin-bottom:clamp(36px,8vh,90px);width:fit-content}
 .projects h2 span{color:#846630}
@@ -93,3 +93,5 @@ footer .wrap{min-height:84px;justify-content:space-between}
 }
 @media(min-width:721px) and (max-width:920px){h1{font-size:5.9vw}.project{grid-template-columns:1fr 1fr 13ch}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}.about .mo-wh__text .mo-w{color:var(--ink)}}
+
+@media(max-width:359px){h1{font-size:2.45rem}.stage{width:min(100%,32svh)}.hero-layout{gap:8px;padding-top:22px}}
