@@ -104,8 +104,8 @@ export function geometry(pieces, move=null, viewpoint=homeView) {
       const dx = project(add(position,u)), dy = project(add(position,v));
       const specular = face.finish===0 || face.finish===4 ? 1.25 : .83;
       visible.push({
-        depth:position[2], body:rounded(square(.485),.085), plastic:tone('#101a28',.85+light*.42),
-        sticker:face.color && rounded(square(.476),.085),
+        depth:position[2], body:rounded(square(.485),.012), plastic:tone('#101a28',.85+light*.42),
+        sticker:face.color && rounded(square(.476),.012),
         finish:face.finish,
         textureMatrix:[dx[0]-origin[0],dx[1]-origin[1],dy[0]-origin[0],dy[1]-origin[1],...origin],
         edge:tone('#7895b7',light*.65),
@@ -123,16 +123,17 @@ export function mountCube(canvas) {
   const pieces=makeCube(), reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const viewpoint={...homeView};
   const scene=canvas.parentElement;
-  const toggle=scene.parentElement.querySelector('.spin-toggle');
   const etchings=Array.from({length:7},(_,finish)=>new Path2D(etching(finish,(x,y)=>x+' '+y)));
   let move=null, frame=0, lastTime=null, onScreen=false, sequence=0;
   let paused=reduced.matches, drag=null, dragged=false, untilTurn=1600;
   const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
   let studio = null;
+  let ready = false;
   let dragTarget = null;
   let manualTurn = false;
   let renderWidth = scene.clientWidth;
   function draw() {
+    if (!ready) return;
     if (studio) {
       studio.draw(Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio,1.5))),move,viewpoint);
       return;
@@ -163,7 +164,6 @@ export function mountCube(canvas) {
       }
       ctx.strokeStyle=f.edge;ctx.lineWidth=1.15;ctx.stroke(tile);
     }
-    canvas.parentElement.classList.add('is-drawn');
   }
   function startTurn(manual=false) {
     if (move) {
@@ -185,7 +185,7 @@ export function mountCube(canvas) {
 
   function schedule() {
     const moving = !paused && !drag || move && manualTurn || dragTarget;
-    if (!frame && onScreen && !document.hidden && moving) frame=requestAnimationFrame(tick);
+    if (ready && !frame && onScreen && !document.hidden && moving) frame=requestAnimationFrame(tick);
   }
   function tick(now) {
     frame=0;
@@ -222,14 +222,6 @@ export function mountCube(canvas) {
     schedule();
   }
 
-  toggle.hidden=false;
-  toggle.textContent=paused ? "Resume rotation" : "Pause rotation";
-  toggle.addEventListener('click',()=>{
-    paused=!paused;
-    if (paused) manualTurn=false;
-    toggle.textContent=paused ? 'Resume rotation' : 'Pause rotation';
-    refresh();
-  });
   new ResizeObserver(()=>{
     renderWidth=scene.clientWidth;
     draw();
@@ -256,7 +248,6 @@ export function mountCube(canvas) {
   });
   reduced.addEventListener('change',()=>{
     paused=reduced.matches;
-    toggle.textContent=paused ? 'Resume rotation' : 'Pause rotation';
     refresh();
   });
   document.addEventListener('visibilitychange',refresh);
@@ -265,22 +256,34 @@ export function mountCube(canvas) {
   // A blocked or lost WebGL context leaves the animated 2D renderer available.
   const surface = document.createElement('canvas');
   surface.setAttribute('aria-hidden','true');
-  if (!surface.getContext('webgl2',{alpha:true,antialias:true,powerPreference:'low-power'})) return;
-  import('./cube-lighting.mjs?v=1efaa8f060').then(({createStudioCube})=>{
+  function startRenderer() {
+    ready=true;
+    renderWidth=scene.clientWidth;
+    draw();
+    scene.classList.add('is-drawn');
+    refresh();
+  }
+  if (!surface.getContext('webgl2',{alpha:true,antialias:true,powerPreference:'low-power'})) {
+    startRenderer();
+    return;
+  }
+  import('./cube-lighting.mjs?v=606eac78fb').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();
       studio=null;
       surface.remove();
       canvas.hidden=false;
-      draw();
+      startRenderer();
     },{once:true});
-    draw();
     scene.append(surface);
     canvas.hidden=true;
+    startRenderer();
   }).catch(()=>{
     studio?.dispose();
     studio=null;
-    draw();
+    surface.remove();
+    canvas.hidden=false;
+    startRenderer();
   });
 }

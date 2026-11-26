@@ -1,4 +1,4 @@
-import { mountCube } from './cube.mjs?v=9bf653d4c7';
+import { mountCube } from './cube.mjs?v=bdcd03778f';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
@@ -53,9 +53,17 @@ import('./assets/moments/moments.js').then(async ({ready})=>{
   document.querySelectorAll('#about .mo-w').forEach((word,index)=>word.style.setProperty('--word-order',index));
 });
 
+// Native scrolling handles easing, anchor history and compositor timing.
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+let destination = null;
+window.addEventListener('scrollend',()=>{destination=null;});
+window.addEventListener('hashchange',()=>{destination=null;});
+window.addEventListener('pointerdown',()=>{destination=null;},{passive:true});
+window.addEventListener('resize',()=>{destination=null;});
+
 // Keep tall sections readable, including at large text sizes and in landscape.
 function scrollStep(direction, distance) {
-  const top = scrollY;
+  const top = destination ?? scrollY;
   const current = sections.findLastIndex(section => section.offsetTop <= top + 2);
   const section = sections[Math.max(0,current)];
   const start = section.offsetTop;
@@ -71,8 +79,12 @@ function scrollStep(direction, distance) {
     const previous = sections[current-1];
     next = previous ? Math.max(previous.offsetTop,start-innerHeight) : 0;
   }
-  window.scrollTo({top:next,behavior:'instant'});
-  return direction > 0 ? next > start && next < end-2 : next > start+2 && next < end;
+  const reading = direction > 0 ? next > start && next < end-2 : next > start+2 && next < end;
+  next = Math.max(0,Math.min(next,document.documentElement.scrollHeight-innerHeight));
+  const animate = !reading && !motionPreference.matches;
+  destination = animate && Math.abs(next-scrollY)>1 ? next : null;
+  window.scrollTo({top:next,behavior:animate ? 'smooth' : 'instant'});
+  return reading;
 }
 
 let wheelTime = -Infinity, wheelDirection = 0, stepped = false, accumulated = 0;

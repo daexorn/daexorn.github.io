@@ -72,7 +72,7 @@ export function createStudioCube(canvas, pieces) {
   stage.add(fill);
   // A single face includes its share of the bevel. Six instances meet to form
   // one solid cubelet, just as the six materials did on the original geometry.
-  const faceShape = new RoundedBoxGeometry(.97,.97,.97,3,.085);
+  const faceShape = new RoundedBoxGeometry(.97,.97,.97,1,.012);
   const front = faceShape.groups[4];
   faceShape.setDrawRange(front.start,front.count);
   const innerMaterial = new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
