@@ -207,3 +207,17 @@ footer .wrap{min-height:84px;justify-content:space-between}
   .hero-meta span:last-child{display:none}
   .study-copy h2{margin:15px 0}
 }
+
+/* A broad light moves behind the foreground, then falls off into About. */
+.hero {position:relative;isolation:isolate;overflow:clip;background:linear-gradient(164deg,#02050c 6%,#07152b 42%,#172e50 76%,#0d203b)}
+.hero::before {content:"";position:absolute;z-index:-2;inset:-10% -14%;pointer-events:none;
+  background:radial-gradient(ellipse 55% 57% at 72% 71%,#95bfdf 0%,#477fb5ed 26%,#2a5998a6 57%,transparent 93%),
+             radial-gradient(ellipse 48% 50% at 26% 80%,#33577b99,transparent 85%);
+  animation:hero-tide 13s ease-in-out infinite alternate}
+.hero::after {content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 65%,#01040b55 82%,#01040b 100%)}
+.hero-meta {color:#c6d7e9}
+@keyframes hero-tide {
+  from {transform:translate3d(-6%,4%,0) scale(1.01)}
+  to {transform:translate3d(7%,-8%,0) scale(1.14)}
+}
+@media(prefers-reduced-motion:reduce){.hero::before{transform:none}}

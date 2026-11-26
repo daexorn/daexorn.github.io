@@ -129,12 +129,15 @@ export function mountCube(canvas) {
   let paused=reduced.matches, drag=null, dragged=false, untilTurn=1600;
   const moves=[[2,1,1],[1,1,-1],[0,1,1],[2,1,-1],[0,-1,-1]];
   let studio = null;
+  let dragTarget = null;
+  let manualTurn = false;
+  let renderWidth = scene.clientWidth;
   function draw() {
     if (studio) {
-      studio.draw(Math.max(1,Math.round(scene.clientWidth*Math.min(devicePixelRatio,1.5))),move,viewpoint);
+      studio.draw(Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio,1.5))),move,viewpoint);
       return;
     }
-    const size=Math.max(1,Math.round(canvas.clientWidth*Math.min(devicePixelRatio||1,2)));
+    const size=Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio||1,1.5)));
     if (canvas.width!==size || canvas.height!==size) canvas.width=canvas.height=size;
     ctx.setTransform(size/512,0,0,size/512,0,0);
     ctx.clearRect(0,0,512,512);
@@ -162,11 +165,17 @@ export function mountCube(canvas) {
     }
     canvas.parentElement.classList.add('is-drawn');
   }
-  function startTurn() {
-    if (move) return;
+  function startTurn(manual=false) {
+    if (move) {
+      if (manual) manualTurn=true;
+      return;
+    }
+    manualTurn=manual;
     const [axis,layer,direction]=moves[sequence++%moves.length];
     if (reduced.matches && paused) {
       turn(pieces,axis,layer,direction);
+      studio?.invalidate();
+      manualTurn=false;
       draw();
     } else {
       move={axis,layer,direction,elapsed:0,angle:0};
@@ -175,35 +184,41 @@ export function mountCube(canvas) {
   }
 
   function schedule() {
-    if (!frame && onScreen && !document.hidden && (move || (!paused && !drag))) {
-      frame=requestAnimationFrame(tick);
-    }
+    const moving = !paused && !drag || move && manualTurn || dragTarget;
+    if (!frame && onScreen && !document.hidden && moving) frame=requestAnimationFrame(tick);
   }
   function tick(now) {
     frame=0;
     if (!onScreen || document.hidden) return;
-    const delta=lastTime===null ? 0 : now-lastTime;
-    if (lastTime===null || delta>=30) {
-      const dt=Math.min(delta,250);
-      lastTime=now;
-      if (!paused && !drag) {
-        viewpoint.yaw+=dt*.00046;
-        untilTurn-=dt;
-        if (untilTurn<=0) startTurn();
-      }
-      if (move) {
-        move.elapsed+=dt;
-        const t=Math.min(1,move.elapsed/780);
-        move.angle=move.direction*HALF_PI*t*t*(3-2*t);
-        if (t===1) { turn(pieces,move.axis,move.layer,move.direction);move=null; }
-      }
-      draw();
+    const dt=lastTime===null ? 0 : Math.min(now-lastTime,48);
+    lastTime=now;
+    if (dragTarget) {
+      const blend=reduced.matches ? 1 : 1-Math.exp(-dt/35);
+      viewpoint.yaw+=(dragTarget.yaw-viewpoint.yaw)*blend;
+      viewpoint.pitch+=(dragTarget.pitch-viewpoint.pitch)*blend;
+      if (Math.abs(dragTarget.yaw-viewpoint.yaw)+Math.abs(dragTarget.pitch-viewpoint.pitch)<.001) dragTarget=null;
+    } else if (!paused && !drag) {
+      viewpoint.yaw+=dt*.00034;
+      untilTurn-=dt;
+      if (untilTurn<=0) startTurn();
     }
+    if (move && (manualTurn || (!paused && !drag))) {
+      move.elapsed+=dt;
+      const t=Math.min(1,move.elapsed/1150);
+      const eased=t*t*t*(t*(6*t-15)+10);
+      move.angle=move.direction*HALF_PI*eased;
+      if (t===1) {
+        turn(pieces,move.axis,move.layer,move.direction);
+        studio?.invalidate();
+        move=null;
+        manualTurn=false;
+      }
+    }
+    draw();
     schedule();
   }
   function refresh() {
     cancelAnimationFrame(frame);frame=0;lastTime=null;
-    if (reduced.matches && move) { turn(pieces,move.axis,move.layer,move.direction);move=null;draw(); }
     schedule();
   }
 
@@ -211,11 +226,14 @@ export function mountCube(canvas) {
   toggle.textContent=paused ? "Resume rotation" : "Pause rotation";
   toggle.addEventListener('click',()=>{
     paused=!paused;
-    if (paused && move) { turn(pieces,move.axis,move.layer,move.direction);move=null;draw(); }
+    if (paused) manualTurn=false;
     toggle.textContent=paused ? 'Resume rotation' : 'Pause rotation';
     refresh();
   });
-  new ResizeObserver(draw).observe(scene);
+  new ResizeObserver(()=>{
+    renderWidth=scene.clientWidth;
+    draw();
+  }).observe(scene);
   new IntersectionObserver(([entry])=>{onScreen=entry.isIntersecting;refresh();}).observe(scene);
   scene.addEventListener('pointerdown',event=>{
     if (!event.isPrimary || event.button!==0) return;
@@ -228,13 +246,12 @@ export function mountCube(canvas) {
     const dx=event.clientX-drag.x, dy=event.clientY-drag.y;
     if (!dragged && Math.hypot(dx,dy)<5) return;
     dragged=true;
-    viewpoint.yaw=drag.yaw+dx*.009;
-    viewpoint.pitch=Math.max(-1.45,Math.min(1.45,drag.pitch+dy*.009));
-    draw();
+    dragTarget={yaw:drag.yaw+dx*.009,pitch:Math.max(-1.45,Math.min(1.45,drag.pitch+dy*.009))};
+    schedule();
   });
   scene.addEventListener('lostpointercapture',()=>{drag=null;refresh();});
   scene.addEventListener('click',event=>{
-    if (!dragged || event.detail===0) { startTurn();schedule(); }
+    if (!dragged || event.detail===0) { startTurn(true);schedule(); }
     dragged=false;
   });
   reduced.addEventListener('change',()=>{
@@ -249,7 +266,7 @@ export function mountCube(canvas) {
   const surface = document.createElement('canvas');
   surface.setAttribute('aria-hidden','true');
   if (!surface.getContext('webgl2',{alpha:true,antialias:true,powerPreference:'low-power'})) return;
-  import('./cube-lighting.mjs?v=d1a07530ef').then(({createStudioCube})=>{
+  import('./cube-lighting.mjs?v=d73bcf4f26').then(({createStudioCube})=>{
     studio=createStudioCube(surface,pieces);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();

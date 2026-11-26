@@ -81,40 +81,59 @@ export function createStudioCube(canvas, pieces) {
       roughness:roughness[i], clearcoat:i === 0 || i === 4 ? .9 : .08,
       clearcoatRoughness:.12, map, bumpMap:map, bumpScale:.008});
   });
-  const cubies = pieces.map(piece => {
-    const body = new THREE.Mesh(bodyShape,bodyMaterial);
-    rig.add(body);
-    const stickers = piece.faces.filter(face => face.color).map(face => {
-      const mesh = new THREE.Mesh(tileShape,tiles[face.finish]);
-      body.add(mesh);
-      return {face, mesh};
-    });
-    return {piece,body,stickers};
+  function batch(geometry, material, count) {
+    const mesh = new THREE.InstancedMesh(geometry, material, count);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    rig.add(mesh);
+    return mesh;
+  }
+  const bodies = batch(bodyShape, bodyMaterial, pieces.length);
+  const stickers = tiles.map((material, finish) => {
+    const faces = pieces.flatMap(piece => piece.faces
+      .filter(face => face.color && face.finish === finish)
+      .map(face => ({piece,face})));
+    return {mesh:batch(tileShape,material,faces.length), faces};
   });
   const basis = new THREE.Matrix4(), u = new THREE.Vector3(), v = new THREE.Vector3(), n = new THREE.Vector3();
+  const turnMatrix = new THREE.Matrix4(), pieceMatrix = new THREE.Matrix4();
   const axes = [new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)];
+  let dirty = true;
+  function placePiece(piece,move) {
+    pieceMatrix.makeTranslation(...piece.center);
+    if (move && piece.center[move.axis] === move.layer) pieceMatrix.premultiply(turnMatrix);
+  }
+  function syncLayer(move) {
+    if (move) turnMatrix.makeRotationAxis(axes[move.axis],move.angle);
+    pieces.forEach((piece,i)=>{
+      placePiece(piece,move);
+      bodies.setMatrixAt(i,pieceMatrix);
+    });
+    bodies.instanceMatrix.needsUpdate = true;
+    for (const {mesh,faces} of stickers) {
+      faces.forEach(({piece,face},i)=>{
+        placePiece(piece,move);
+        u.fromArray(face.tangent);
+        n.fromArray(face.normal);
+        v.crossVectors(n,u);
+        basis.makeBasis(u,v,n).setPosition(n.multiplyScalar(.475)).premultiply(pieceMatrix);
+        mesh.setMatrixAt(i,basis);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
   return {
+    invalidate() { dirty = true; },
     draw(size, move, view) {
       if (canvas.width !== size) renderer.setSize(size,size,false);
       rig.rotation.set(view.pitch,view.yaw,-.055,'ZXY');
-      for (const {piece,body,stickers} of cubies) {
-        body.position.fromArray(piece.center);
-        body.quaternion.identity();
-        if (move && piece.center[move.axis] === move.layer) {
-          body.quaternion.setFromAxisAngle(axes[move.axis], move.angle);
-          body.position.applyQuaternion(body.quaternion);
-        }
-        for (const {face,mesh} of stickers) {
-          u.fromArray(face.tangent);
-          n.fromArray(face.normal);
-          v.crossVectors(n,u);
-          mesh.position.copy(n).multiplyScalar(.475);
-          mesh.quaternion.setFromRotationMatrix(basis.makeBasis(u,v,n));
-        }
-      }
+      if (move || dirty) syncLayer(move);
+      dirty = Boolean(move);
       renderer.render(stage,camera);
     },
     dispose() {
+      bodies.dispose();
+      stickers.forEach(({mesh}) => mesh.dispose());
       reflection.dispose();
       bodyShape.dispose(); tileShape.dispose(); bodyMaterial.dispose();
       tiles.forEach(material => {material.map?.dispose(); material.dispose();});
