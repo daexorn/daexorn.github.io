@@ -17,15 +17,24 @@
   <link rel="icon" href="data:,">
   <link rel="preload" href="assets/fonts/host-grotesk.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/motion/motion.css">
-  <link rel="stylesheet" href="style.css?v=623042e236">
+  <link rel="stylesheet" href="style.css?v=1b123a5387">
   <script>document.documentElement.classList.add('m-enter');setTimeout(() => document.documentElement.classList.add('m-enter-done'), 700)</script>
   <script type="module" src="assets/motion/motion.js"></script>
-  <script type="module" src="script.js?v=27416db0dc"></script>
+  <script type="module" src="script.js?v=4d4531792c"></script>
   <script type="module" src="assets/moments/moments.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <svg width="0" height="0" aria-hidden="true" class="menu-optics" focusable="false">
+    <defs>
+      <filter id="menu-refraction" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feImage href="assets/menu-refraction.png" width="100%" height="100%" preserveAspectRatio="none" result="rim"/>
+        <feDisplacementMap in="SourceGraphic" in2="rim" xChannelSelector="R" yChannelSelector="G" scale="15"/>
+      </filter>
+    </defs>
+  </svg>
   <nav class="section-index" aria-label="Main navigation">
+    <span class="menu-lens" aria-hidden="true"></span>
     <a href="#top" aria-current="location"><strong class="desktop-name">maisdev</strong><strong class="mobile-name">Overview</strong></a>
     <a href="#about"><strong>About</strong></a>
     <a href="#notebook"><strong>Notebook</strong></a>

@@ -10,12 +10,31 @@ const main = document.querySelector('main');
 const panels = sections.map(section=>section.querySelector('.scene-panel'));
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 let currentIndex = -1, frame = 0;
+const lens=sectionIndex.querySelector('.menu-lens');
+let lensIndex=-1, menuTarget=null;
 let starts = [], overflow = [];
 const clamp = value=>Math.max(0,Math.min(1,value));
+
+function moveLens(index) {
+  if (index===lensIndex) return;
+  const previous=lensIndex;
+  lensIndex=index;
+  sectionIndex.style.setProperty('--lens-slot',index);
+  lens.getAnimations().filter(animation=>animation.id==='lens-stretch').forEach(animation=>animation.cancel());
+  if (previous<0 || motionPreference.matches) return;
+  lens.style.transformOrigin=index>previous ? 'left center' : 'right center';
+  lens.animate([
+    {transform:'scale(1)'},
+    {transform:'scale(1.16,.95)',offset:.47},
+    {transform:'scale(.985,1.015)',offset:.83},
+    {transform:'scale(1)'}
+  ],{id:'lens-stretch',duration:460,easing:'ease-in-out'});
+}
 
 function selectSection(index) {
   if (index===currentIndex) return;
   currentIndex=index;
+  if (menuTarget===null) moveLens(index);
   sections.forEach((section,i)=>{
     section.classList.toggle('is-current',i===index);
     panels[i].inert=!motionPreference.matches && i!==index;
@@ -91,6 +110,10 @@ let menuFrame = 0;
 function cancelMenuTravel() {
   cancelAnimationFrame(menuFrame);
   menuFrame=0;
+  if (menuTarget!==null) {
+    menuTarget=null;
+    moveLens(currentIndex);
+  }
 }
 sectionIndex.addEventListener('click',event=>{
   const link=event.target.closest('a[href^="#"]');
@@ -100,6 +123,8 @@ sectionIndex.addEventListener('click',event=>{
   if (!target) return;
   event.preventDefault();
   cancelMenuTravel();
+  const selected=sections.indexOf(target);
+  moveLens(selected);
   const start=scrollY;
   const destination=()=>Math.min(target.offsetTop,document.documentElement.scrollHeight-innerHeight);
   const end=destination();
@@ -111,12 +136,14 @@ sectionIndex.addEventListener('click',event=>{
   const distance=end-start;
   if (Math.abs(distance)<1) return;
   const duration=Math.min(2400,720+480*Math.abs(distance)/innerHeight);
+  menuTarget=selected;
   const startTime=performance.now();
   function advance(now) {
     const t=clamp((now-startTime)/duration);
     // Cosine easing starts and ends at zero velocity, even for a long jump.
     const fraction=(1-Math.cos(Math.PI*t))/2;
     window.scrollTo({top:t===1 ? destination() : start+distance*fraction,behavior:'instant'});
+    if (t===1) menuTarget=null;
     menuFrame=t<1 ? requestAnimationFrame(advance) : 0;
   }
   menuFrame=requestAnimationFrame(advance);
