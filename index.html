@@ -12,36 +12,24 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://daexorn.github.io/assets/share.jpg">
   <title>Ilya / maisdev — Data science &amp; Telegram bots</title>
-  <link rel="preload" as="image" href="assets/cube-poster.webp?v=8dde0136fe" fetchpriority="high">
+  <link rel="preload" as="image" href="assets/cube-poster.webp?v=8dde0136fe" media="(not (pointer: coarse)) and (min-width: 720.01px)" fetchpriority="high">
+  <link rel="preload" as="image" href="assets/cube-poster-mobile.webp?v=fe81bfd134" media="(pointer: coarse), (max-width: 720px)" fetchpriority="high">
   <link rel="icon" href="data:,">
   <link rel="preload" href="assets/fonts/host-grotesk.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/motion/motion.css">
-  <link rel="stylesheet" href="style.css?v=8388f64c1a">
+  <link rel="stylesheet" href="style.css?v=30953c0a83">
   <script>document.documentElement.classList.add('m-enter');setTimeout(() => document.documentElement.classList.add('m-enter-done'), 700)</script>
   <script type="module" src="assets/motion/motion.js"></script>
-  <script type="module" src="script.js?v=0cb49fafb9"></script>
+  <script type="module" src="script.js?v=27416db0dc"></script>
   <script type="module" src="assets/moments/moments.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
-  <svg class="lens-def" width="0" height="0" aria-hidden="true">
-    <defs><filter id="nav-lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feImage id="lens-map" result="map" preserveAspectRatio="none" width="100%" height="100%"/>
-      <feDisplacementMap in="SourceGraphic" in2="map" scale="22" xChannelSelector="R" yChannelSelector="G"/>
-    </filter></defs>
-  </svg>
-  <header class="site-header nav">
-    <div class="wrap nav-inner">
-      <a class="wordmark" href="#top" aria-label="maisdev home">maisdev</a>
-      <nav aria-label="Main navigation"><a href="#about">About</a><a href="#notebook">Notebook</a><a href="#cube-study">Cube</a></nav>
-      <a class="git-link" href="https://github.com/daexorn" aria-label="daexorn on GitHub"><img src="assets/brands/github.svg" alt="" width="20" height="20"><span>GitHub</span></a>
-    </div>
-  </header>
-  <nav class="section-index" aria-label="Portfolio sections">
-    <a href="#top" aria-current="location"><strong>Overview</strong><small>Ilya’s portfolio</small></a>
-    <a href="#about"><strong>About</strong><small>Background and contacts</small></a>
-    <a href="#notebook"><strong>Notebook</strong><small>A reply-time experiment</small></a>
-    <a href="#cube-study"><strong>Cube study</strong><small>Follow a quarter turn</small></a>
+  <nav class="section-index" aria-label="Main navigation">
+    <a href="#top" aria-current="location"><strong class="desktop-name">maisdev</strong><strong class="mobile-name">Overview</strong></a>
+    <a href="#about"><strong>About</strong></a>
+    <a href="#notebook"><strong>Notebook</strong></a>
+    <a href="#cube-study"><strong>Cube study</strong></a>
   </nav>
   <main id="main">
     <section id="top" class="hero" data-enter aria-labelledby="headline">
@@ -55,7 +43,10 @@
           </div>
           <div class="stage hero__stage" data-enter-media>
             <button class="cube" type="button" aria-label="Turn a layer of the dark Rubik’s cube">
-              <img fetchpriority="high" src="assets/cube-poster.webp?v=8dde0136fe" width="512" height="512" alt="">
+              <picture>
+                <source media="(pointer: coarse), (max-width: 720px)" srcset="assets/cube-poster-mobile.webp?v=fe81bfd134">
+                <img fetchpriority="high" src="assets/cube-poster.webp?v=8dde0136fe" width="512" height="512" alt="">
+              </picture>
               <canvas aria-hidden="true" width="512" height="512"></canvas>
             </button>
           </div>
@@ -75,6 +66,7 @@
           <div class="socials" aria-label="Social links">
             <a href="https://discord.gg/TpM7jDhBMN"><img src="assets/brands/discord.svg" width="24" height="20" alt="">Discord</a>
             <a href="https://t.me/mssvr"><img src="assets/brands/telegram.svg" width="24" height="20" alt="">Telegram</a>
+            <a href="https://github.com/daexorn"><img src="assets/brands/github.svg" width="21" height="21" alt="">GitHub</a>
           </div>
         </div>
       </div>
@@ -90,7 +82,7 @@
           <figure class="experiment">
             <figcaption>Example reply times <span>seconds</span></figcaption>
             <ol class="samples" aria-label="Reply times in seconds">
-              <li style="--time:4"><span>4</span></li><li style="--time:5"><span>5</span></li><li style="--time:6"><span>6</span></li><li style="--time:7"><span>7</span></li><li style="--time:8"><span>8</span></li><li style="--time:60" class="slow" hidden><span>60</span></li>
+              <li style="--time:4"><span>4</span></li><li style="--time:5"><span>5</span></li><li style="--time:6"><span>6</span></li><li style="--time:7"><span>7</span></li><li style="--time:8"><span>8</span></li><li style="--time:60" class="slow" aria-hidden="true"><span>60</span></li>
             </ol>
             <div class="readings" aria-live="polite"><p>Mean<strong id="mean">6 s</strong></p><p>Median<strong id="median">6 s</strong></p></div>
             <button class="demo-action" type="button" id="sample-toggle" aria-pressed="false" hidden>Include the 60 s reply</button>

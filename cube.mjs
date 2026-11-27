@@ -3,7 +3,7 @@ const HALF_PI = Math.PI / 2;
 const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 // The original cube's four navy finishes under its cool key and hemisphere lights.
 const shell = ['#03070c','#050b13','#07101b','#091525'];
-export const homeView = Object.freeze({yaw:-Math.PI/4, pitch:Math.atan(1/Math.sqrt(2)), lift:0, tilt:0, spinAxis:1, spinAngle:0});
+export const homeView = Object.freeze({yaw:-Math.PI/4, pitch:Math.atan(1/Math.sqrt(2)), lift:0, tilt:0, spinX:0, spinY:0, spinZ:0});
 const add = (a,b) => a.map((v,i) => v+b[i]);
 const scale = (v,n) => v.map(x => x*n);
 const dot = (a,b) => a.reduce((sum,x,i) => sum+x*b[i],0);
@@ -49,7 +49,7 @@ export function makeCube() {
 }
 
 function camera(v,viewpoint) {
-  const spun=viewpoint.spinAngle ? rotate(v,viewpoint.spinAxis,viewpoint.spinAngle) : v;
+  const spun=rotate(rotate(rotate(v,0,viewpoint.spinX),1,viewpoint.spinY),2,viewpoint.spinZ);
   return rotate(rotate(rotate(spun,1,viewpoint.yaw),0,viewpoint.pitch+viewpoint.tilt),2,-viewpoint.tilt);
 }
 function project(v) {
@@ -141,14 +141,15 @@ export function mountCube(canvas) {
   let manualTurn = false;
   let queuedTap = false;
   let renderWidth = scene.clientWidth;
-  let pixelRatio = Math.min(devicePixelRatio || 1, 1.5);
+  const lightRenderer=matchMedia('(pointer: coarse), (max-width: 720px)').matches;
+  let pixelRatio = Math.min(devicePixelRatio || 1, lightRenderer ? 1 : 1.5);
   let samples = 0, lateFrames = 0;
   function sampleFrameTime(ms) {
-    if (!studio || ms<=0 || ms>150 || pixelRatio<=.8) return;
+    if (ms<=0 || pixelRatio<=.7) return;
     samples++;
     if (ms>22) lateFrames++;
-    if (samples===40) {
-      if (lateFrames>=10) pixelRatio=Math.max(.8,pixelRatio*.85);
+    if (samples===24) {
+      if (lateFrames>=6) pixelRatio=Math.max(.7,pixelRatio*.85);
       samples=lateFrames=0;
     }
   }
@@ -158,7 +159,7 @@ export function mountCube(canvas) {
       studio.draw(Math.max(1,Math.round(renderWidth*pixelRatio)),move,viewpoint);
       return;
     }
-    const size=Math.max(1,Math.round(renderWidth*Math.min(devicePixelRatio||1,1.5)));
+    const size=Math.max(1,Math.round(renderWidth*pixelRatio));
     if (canvas.width!==size || canvas.height!==size) canvas.width=canvas.height=size;
     ctx.setTransform(size/512,0,0,size/512,0,0);
     ctx.clearRect(0,0,512,512);
@@ -211,16 +212,14 @@ export function mountCube(canvas) {
   }
 
   const turnDuration=600;
-  const spinDuration=5600, orbitPeriod=spinDuration+250;
-  const spinAxes=[1,0,2];
+  // Three different rates keep the silhouette changing throughout each revolution.
   let orbitTime=0;
   function advanceOrbit(dt) {
-    orbitTime=(orbitTime+dt)%(orbitPeriod*spinAxes.length);
-    const segment=Math.floor(orbitTime/orbitPeriod);
-    const t=Math.min(1,(orbitTime%orbitPeriod)/spinDuration);
-    viewpoint.spinAxis=spinAxes[segment];
-    viewpoint.spinAngle=(segment===1 ? 1 : -1)*Math.PI*(1-Math.cos(Math.PI*t));
-    const wave=Math.sin(orbitTime*Math.PI*6/(orbitPeriod*spinAxes.length));
+    orbitTime+=dt/1000;
+    viewpoint.spinX=orbitTime*.34;
+    viewpoint.spinY=-orbitTime*.59;
+    viewpoint.spinZ=orbitTime*.23;
+    const wave=Math.sin(orbitTime*1.07);
     viewpoint.lift=.06*wave;
     viewpoint.tilt=.005*wave;
   }
@@ -324,8 +323,14 @@ export function mountCube(canvas) {
     startRenderer();
     return;
   }
-  import('./cube-lighting.mjs?v=b9b4bbb209').then(({createStudioCube})=>{
-    studio=createStudioCube(surface,pieces);
+  let finishes=null;
+  if (lightRenderer) {
+    const atlas=new Image();
+    atlas.src=new URL('./assets/cube-finishes.webp',import.meta.url);
+    finishes=atlas.decode().then(()=>atlas).catch(()=>null);
+  }
+  Promise.all([import('./cube-lighting.mjs?v=8f3d17762f'),finishes]).then(([{createStudioCube},atlas])=>{
+    studio=createStudioCube(surface,pieces,atlas);
     surface.addEventListener('webglcontextlost',()=>{
       studio?.dispose();
       studio=null;

@@ -1,41 +1,10 @@
-import { mountCube } from './cube.mjs?v=a3e25b72ab';
+import { mountCube } from './cube.mjs?v=533478bfc8';
 
 const canvas = document.querySelector('.cube canvas');
 if (canvas) mountCube(canvas);
 
-// The red and green channels encode the horizontal and vertical displacement
-// of a rounded lens. The centre stays neutral so text behind it stays legible.
-const dock=document.querySelector('.site-header');
-if (CSS.supports('backdrop-filter','url(#nav-lens)') && /Chrome|Chromium|Edg\//.test(navigator.userAgent)) {
-  const map=document.querySelector('#lens-map');
-  const paintLens=()=>{
-    const width=dock.clientWidth, height=dock.clientHeight, radius=17, rim=8;
-    if (!width || !height) return;
-    const stamp=document.createElement('canvas');
-    stamp.width=width;stamp.height=height;
-    const ctx=stamp.getContext('2d');
-    if (!ctx) return;
-    const pixels=ctx.createImageData(width,height);
-    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-      const dx=x-Math.max(radius,Math.min(width-radius,x));
-      const dy=y-Math.max(radius,Math.min(height-radius,y));
-      const length=Math.hypot(dx,dy);
-      const depth=radius-length;
-      const bend=depth>=0 && depth<rim ? Math.sin(Math.PI*depth/rim) : 0;
-      const i=4*(y*width+x);
-      pixels.data[i]=128+112*bend*dx/(length||1);
-      pixels.data[i+1]=128+112*bend*dy/(length||1);
-      pixels.data[i+3]=255;
-    }
-    ctx.putImageData(pixels,0,0);
-    map.setAttribute('href',stamp.toDataURL());
-    dock.classList.add('has-lens');
-  };
-  new ResizeObserver(paintLens).observe(dock);
-}
-
 const sections = [...document.querySelectorAll('main > section')];
-const indexLinks = [...document.querySelectorAll('.section-index a, .site-header nav a')];
+const indexLinks = [...document.querySelectorAll('.section-index a')];
 const sectionIndex = document.querySelector('.section-index');
 const main = document.querySelector('main');
 const panels = sections.map(section=>section.querySelector('.scene-panel'));
@@ -47,14 +16,12 @@ const clamp = value=>Math.max(0,Math.min(1,value));
 function selectSection(index) {
   if (index===currentIndex) return;
   currentIndex=index;
-  sectionIndex.style.setProperty('--selected',index);
   sections.forEach((section,i)=>{
     section.classList.toggle('is-current',i===index);
     panels[i].inert=!motionPreference.matches && i!==index;
   });
   for (const link of indexLinks) {
     const i=sections.findIndex(section=>link.hash==='#'+section.id);
-    link.toggleAttribute('data-past',i<index);
     if (i===index) link.setAttribute('aria-current','location');
     else link.removeAttribute('aria-current');
   }
@@ -134,7 +101,8 @@ sectionIndex.addEventListener('click',event=>{
   event.preventDefault();
   cancelMenuTravel();
   const start=scrollY;
-  const end=Math.min(start+target.getBoundingClientRect().top,document.documentElement.scrollHeight-innerHeight);
+  const destination=()=>Math.min(target.offsetTop,document.documentElement.scrollHeight-innerHeight);
+  const end=destination();
   if (location.hash!==link.hash) history.pushState(null,'',link.hash);
   if (motionPreference.matches) {
     window.scrollTo({top:end,behavior:'instant'});
@@ -148,12 +116,12 @@ sectionIndex.addEventListener('click',event=>{
     const t=clamp((now-startTime)/duration);
     // Cosine easing starts and ends at zero velocity, even for a long jump.
     const fraction=(1-Math.cos(Math.PI*t))/2;
-    window.scrollTo({top:start+distance*fraction,behavior:'instant'});
+    window.scrollTo({top:t===1 ? destination() : start+distance*fraction,behavior:'instant'});
     menuFrame=t<1 ? requestAnimationFrame(advance) : 0;
   }
   menuFrame=requestAnimationFrame(advance);
 });
-for (const type of ['wheel','touchstart','pointerdown','keydown','popstate','hashchange','resize']) {
+for (const type of ['wheel','touchstart','pointerdown','keydown','popstate','hashchange']) {
   window.addEventListener(type,cancelMenuTravel,{passive:true});
 }
 motionPreference.addEventListener('change',cancelMenuTravel);
@@ -167,15 +135,23 @@ const sampleToggle = document.querySelector('#sample-toggle');
 const slowReply = document.querySelector('.samples .slow');
 sampleToggle.hidden = false;
 sampleToggle.addEventListener('click', () => {
-  const includeSlow = slowReply.hidden;
-  slowReply.hidden = !includeSlow;
+  const includeSlow = sampleToggle.getAttribute('aria-pressed')!=='true';
+  slowReply.closest('.samples').classList.toggle('with-outlier',includeSlow);
+  slowReply.setAttribute('aria-hidden',String(!includeSlow));
   sampleToggle.setAttribute('aria-pressed', String(includeSlow));
-  const times = [...document.querySelectorAll('.samples li:not([hidden])')].map(item => Number(item.textContent));
+  sampleToggle.textContent=includeSlow ? 'Remove the 60 s reply' : 'Include the 60 s reply';
+  const times = [...document.querySelectorAll('.samples li:not([aria-hidden="true"])')].map(item => Number(item.textContent));
   const middle = (times.length - 1) / 2;
   const mean = times.reduce((total, time) => total + time, 0) / times.length;
   const median = (times[Math.floor(middle)] + times[Math.ceil(middle)]) / 2;
   document.querySelector('#mean').textContent = mean + ' s';
   document.querySelector('#median').textContent = median + ' s';
+  if (!motionPreference.matches) {
+    const readings=document.querySelector('.readings');
+    readings.getAnimations().forEach(animation=>animation.cancel());
+    readings.animate([{opacity:.5,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],
+      {duration:360,easing:'ease-out'});
+  }
 });
 
 const quarterTurn = document.querySelector('#quarter-turn');

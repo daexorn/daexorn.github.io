@@ -51,13 +51,24 @@ function grain(finish) {
   return map;
 }
 
-export function createStudioCube(canvas, pieces) {
+// Each square records the studio light on a sphere with one of the cube's finishes.
+function bakedFinish(atlas,index) {
+  const tile=document.createElement('canvas');
+  const size=atlas.naturalWidth/4;
+  tile.width=tile.height=size;
+  tile.getContext('2d').drawImage(atlas,(index%4)*size,Math.floor(index/4)*size,size,size,0,0,size,size);
+  const matcap=new THREE.CanvasTexture(tile);
+  matcap.colorSpace=THREE.SRGBColorSpace;
+  return new THREE.MeshMatcapMaterial({matcap,map:index>0 && index<7 ? grain(index) : null,toneMapped:false});
+}
+
+export function createStudioCube(canvas, pieces, atlas=null) {
   const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true, powerPreference:'low-power'});
   renderer.setClearColor(0, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const stage = new THREE.Scene();
-  const reflection = studioReflection(renderer);
-  stage.environment = reflection.texture;
+  const reflection = atlas ? null : studioReflection(renderer);
+  if (reflection) stage.environment = reflection.texture;
   const camera = new THREE.PerspectiveCamera(10, 1, .1, 40);
   camera.position.z = 31;
   const rig = new THREE.Group();
@@ -72,7 +83,7 @@ export function createStudioCube(canvas, pieces) {
   const fill = new THREE.DirectionalLight(0xa4c6ed, 2.6);
   fill.position.set(3, 1, 6);
   stage.add(fill);
-  const bodyShape = new RoundedBoxGeometry(1,1,1,3,.12);
+  const bodyShape = new RoundedBoxGeometry(1,1,1,atlas ? 2 : 3,.12);
   const tileWidth = .82, half = tileWidth/2, radius = tileWidth*.15;
   const outline = new THREE.Shape();
   outline.moveTo(-half+radius,-half);
@@ -88,12 +99,13 @@ export function createStudioCube(canvas, pieces) {
   faceShape.translate(0,0,.5);
   const uv = faceShape.attributes.uv;
   for (let i=0; i<uv.count; i++) uv.setXY(i,uv.getX(i)/tileWidth+.5,uv.getY(i)/tileWidth+.5);
-  const innerMaterial = new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
+  const innerMaterial = atlas ? bakedFinish(atlas,7) : new THREE.MeshStandardMaterial({color:0x060c15,metalness:.18,roughness:.46});
   const tones = [0x203149,0x233448,0x24394f,0x354b60,0x203248,0x2a3a50,0x263748];
   const roughness = [.12,.38,.82,.7,.18,.46,.88];
   const metals = [.72,.46,.10,.18,.66,.38,.06];
   const coats = [1,.38,0,.04,.88,.24,0];
   const tiles = tones.map((color, i) => {
+    if (atlas) return bakedFinish(atlas,i);
     const map = i ? grain(i) : null;
     return new THREE.MeshPhysicalMaterial({color, metalness:metals[i],
       roughness:roughness[i], clearcoat:coats[i],
@@ -156,15 +168,15 @@ export function createStudioCube(canvas, pieces) {
       if (canvas.width !== size) renderer.setSize(size,size,false);
       rig.position.y=view.lift;
       rig.rotation.set(view.pitch+view.tilt,view.yaw,-view.tilt,'ZXY');
-      spinner.quaternion.setFromAxisAngle(axes[view.spinAxis],view.spinAngle);
+      spinner.rotation.set(view.spinX,view.spinY,view.spinZ,'ZYX');
       if (move || dirty || wasTurning) syncLayer(move);
       renderer.render(stage,camera);
     },
     dispose() {
       surfaces.forEach(({mesh}) => mesh.dispose());
-      reflection.dispose();
-      bodyShape.dispose(); faceShape.dispose(); innerMaterial.dispose();
-      tiles.forEach(material => {material.map?.dispose(); material.dispose();});
+      reflection?.dispose();
+      bodyShape.dispose(); faceShape.dispose(); innerMaterial.matcap?.dispose(); innerMaterial.dispose();
+      tiles.forEach(material => {material.map?.dispose(); material.matcap?.dispose(); material.dispose();});
       renderer.dispose();
     }
   };
